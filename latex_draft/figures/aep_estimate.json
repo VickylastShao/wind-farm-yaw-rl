@@ -1,0 +1,54 @@
+{
+  "kappa_1.0": {
+    "kappa": 1.0,
+    "weibull_A": 11.0,
+    "weibull_k": 2.0,
+    "n_samples": 10000,
+    "baseline_aep_mwh_yr": 235263.19836579074,
+    "policy_aep_mwh_yr": 235899.71437130024,
+    "aep_gain_mwh_yr": 636.5160055095039,
+    "aep_gain_pct": 0.2705548551286119,
+    "revenue_gain_eur_yr": 31825.800275475194,
+    "price_eur_per_mwh": 50.0,
+    "marginal_gain_pct": 0.5554716737138229,
+    "regime_breakdown": {
+      "aligned_cube": {
+        "n": 1196,
+        "fraction": 0.1196,
+        "mean_gain_pct": 3.8910635587759317,
+        "aep_contribution_pct": 571.4085066964598
+      },
+      "non_aligned": {
+        "n": 8804,
+        "fraction": 0.8804,
+        "mean_gain_pct": 0.10234038174036962
+      }
+    }
+  },
+  "kappa_2.0": {
+    "kappa": 2.0,
+    "weibull_A": 11.0,
+    "weibull_k": 2.0,
+    "n_samples": 10000,
+    "baseline_aep_mwh_yr": 233997.37371610387,
+    "policy_aep_mwh_yr": 234940.04746238026,
+    "aep_gain_mwh_yr": 942.6737462763849,
+    "aep_gain_pct": 0.4028565497577246,
+    "revenue_gain_eur_yr": 47133.687313819246,
+    "price_eur_per_mwh": 50.0,
+    "marginal_gain_pct": 0.7607619993721803,
+    "regime_breakdown": {
+      "aligned_cube": {
+        "n": 1714,
+        "fraction": 0.1714,
+        "mean_gain_pct": 3.6170631154998922,
+        "aep_contribution_pct": 372.1747509345695
+      },
+      "non_aligned": {
+        "n": 8286,
+        "fraction": 0.8286,
+        "mean_gain_pct": 0.16992201469406085
+      }
+    }
+  }
+}

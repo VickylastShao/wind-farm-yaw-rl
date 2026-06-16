@@ -1,0 +1,48 @@
+{
+  "backend": "sb3-torch-cuda",
+  "n_seeds": 1,
+  "per_seed": [
+    {
+      "seed": 0,
+      "backend": "sb3-torch-cuda",
+      "n_seeds": 1,
+      "n_envs": 8,
+      "total_steps_target": 50000,
+      "total_env_steps": 50000,
+      "n_steps": 2048,
+      "batch_size": 256,
+      "n_epochs": 10,
+      "wall_clock_s": 65.36650538444519,
+      "fps": 764.9177465726682,
+      "final_ep_rew_mean": -11.089900970458984,
+      "iterations": [
+        {
+          "iteration": 0,
+          "total_env_steps": 16384,
+          "ep_rew_mean": -23.587387084960938,
+          "ep_len_mean": 200.0
+        },
+        {
+          "iteration": 1,
+          "total_env_steps": 32768,
+          "ep_rew_mean": -35.338623046875,
+          "ep_len_mean": 200.0
+        },
+        {
+          "iteration": 2,
+          "total_env_steps": 49152,
+          "ep_rew_mean": -12.311347961425781,
+          "ep_len_mean": 200.0
+        },
+        {
+          "iteration": 3,
+          "total_env_steps": 65536,
+          "ep_rew_mean": -11.089900970458984,
+          "ep_len_mean": 200.0
+        }
+      ]
+    }
+  ],
+  "wall_clock_mean_s": 65.36650538444519,
+  "fps_mean": 764.9177465726682
+}

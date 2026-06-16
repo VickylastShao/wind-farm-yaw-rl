@@ -1,0 +1,30 @@
+{
+  "description": "Dynamic-wind-trained DRL policy evaluation (E1, fast)",
+  "tag": "dynamic_wind",
+  "n_seeds": 3,
+  "n_trajectories": 1000,
+  "traj_length": 200,
+  "T_step_s": 10.0,
+  "per_seed": [
+    {
+      "gain_mean": -0.6448990715684486,
+      "travel_mean": 2088.9102396850585,
+      "rate_mean": 1.0444551198425294
+    },
+    {
+      "gain_mean": -0.9034671115995152,
+      "travel_mean": 1911.9091126708984,
+      "rate_mean": 0.9559545563354492
+    },
+    {
+      "gain_mean": -1.2897446345933714,
+      "travel_mean": 2177.2647797546388,
+      "rate_mean": 1.0886323898773194
+    }
+  ],
+  "mean": {
+    "gain_mean": -0.9460369392537785,
+    "travel_mean": 2059.3613773701986,
+    "rate_mean": 1.0296806886850993
+  }
+}

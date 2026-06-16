@@ -1,0 +1,35 @@
+{
+  "n_seeds": 3,
+  "n_conditions": 3000,
+  "per_seed": [
+    {
+      "seed": 0,
+      "mean_gain_pct": -0.041438449174165726,
+      "std_gain_pct": 1.3821375370025635,
+      "median_gain_pct": 0.0,
+      "p5_gain_pct": -0.9992117285728455,
+      "p95_gain_pct": 0.6561543941497803,
+      "n_positive": 366
+    },
+    {
+      "seed": 1,
+      "mean_gain_pct": -0.09664028137922287,
+      "std_gain_pct": 1.7788673639297485,
+      "median_gain_pct": 0.0,
+      "p5_gain_pct": -0.9948608875274658,
+      "p95_gain_pct": 0.4938066005706787,
+      "n_positive": 343
+    },
+    {
+      "seed": 2,
+      "mean_gain_pct": -0.03402728959918022,
+      "std_gain_pct": 1.544915795326233,
+      "median_gain_pct": 0.0,
+      "p5_gain_pct": -1.3851898908615112,
+      "p95_gain_pct": 0.3546619117259979,
+      "n_positive": 321
+    }
+  ],
+  "marginal_mean_pct": -0.05736866593360901,
+  "aligned_cube_pct": 0.036808013916015625
+}

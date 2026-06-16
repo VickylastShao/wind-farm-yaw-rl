@@ -1,0 +1,62 @@
+{
+  "n_conditions": 3000,
+  "n_seeds": 5,
+  "thresholds": [
+    0.005,
+    0.01,
+    0.02
+  ],
+  "per_threshold": {
+    "thr_0.5pct": {
+      "threshold_pct": 0.5,
+      "mean_gain_pct": 0.4188203811645508,
+      "marginal_mean_pct": 0.4188203811645508,
+      "aligned_cube_mean_pct": 3.333904981613159,
+      "aligned_cube_n": 261,
+      "n_locked_mean": 6.398,
+      "n_locked_max": 9,
+      "lock_set_diff_vs_baseline_pct": 6.7,
+      "per_seed_mean_pct": [
+        0.3520222306251526,
+        0.432782381772995,
+        0.422278493642807,
+        0.5047544240951538,
+        0.382264643907547
+      ]
+    },
+    "thr_1.0pct": {
+      "threshold_pct": 1.0,
+      "mean_gain_pct": 0.42333707213401794,
+      "marginal_mean_pct": 0.42333707213401794,
+      "aligned_cube_mean_pct": 3.3921589851379395,
+      "aligned_cube_n": 261,
+      "n_locked_mean": 6.64,
+      "n_locked_max": 9,
+      "lock_set_diff_vs_baseline_pct": null,
+      "per_seed_mean_pct": [
+        0.3530765771865845,
+        0.4401014745235443,
+        0.42382243275642395,
+        0.5143589973449707,
+        0.38532575964927673
+      ]
+    },
+    "thr_2.0pct": {
+      "threshold_pct": 2.0,
+      "mean_gain_pct": 0.4159201681613922,
+      "marginal_mean_pct": 0.4159201681613922,
+      "aligned_cube_mean_pct": 3.433523416519165,
+      "aligned_cube_n": 261,
+      "n_locked_mean": 6.935333333333333,
+      "n_locked_max": 9,
+      "lock_set_diff_vs_baseline_pct": 7.933333333333334,
+      "per_seed_mean_pct": [
+        0.34268447756767273,
+        0.4388062357902527,
+        0.4135942757129669,
+        0.5072459578514099,
+        0.37727007269859314
+      ]
+    }
+  }
+}

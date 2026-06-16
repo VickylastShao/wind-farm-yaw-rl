@@ -1,0 +1,26 @@
+{
+  "backend": "sbx-jax-cpu",
+  "n_seeds": 2,
+  "n_envs": 8,
+  "total_steps": 10000000,
+  "n_steps": 2048,
+  "batch_size": 256,
+  "runs": [
+    {
+      "seed": 0,
+      "final_path": "/mnt/c/Users/vicks/MyWork/JAX-WFCOYAW-RL/codes/checkpoints_3x3/ppo_3x3_seed0_final.zip",
+      "vn_path": "/mnt/c/Users/vicks/MyWork/JAX-WFCOYAW-RL/codes/checkpoints_3x3/vecnormalize_seed0.pkl",
+      "wall_clock_s": 4407.442175388336,
+      "total_steps": 10000000,
+      "n_envs": 8
+    },
+    {
+      "seed": 1,
+      "final_path": "/mnt/c/Users/vicks/MyWork/JAX-WFCOYAW-RL/codes/checkpoints_3x3/ppo_3x3_seed1_final.zip",
+      "vn_path": "/mnt/c/Users/vicks/MyWork/JAX-WFCOYAW-RL/codes/checkpoints_3x3/vecnormalize_seed1.pkl",
+      "wall_clock_s": 4492.206557273865,
+      "total_steps": 10000000,
+      "n_envs": 8
+    }
+  ]
+}

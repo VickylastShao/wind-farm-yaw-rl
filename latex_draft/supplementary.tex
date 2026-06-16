@@ -1,0 +1,55 @@
+\documentclass{article}
+\usepackage{amsmath,amssymb,graphicx,booktabs,hyperref}
+\begin{document}
+
+\title{Supporting Information: Cooperative Yaw Control for Wind Farm Power Maximization}
+\maketitle
+
+\section{SAC Algorithm Comparison --- Full Details}
+
+\subsection{Implementation}
+A JAX/NNX-native Soft Actor-Critic (SAC) agent was implemented on the same on-device stack used for PPO. The SAC agent uses twin Q-networks with $[128,128]$ MLPs (identical architecture to PPO), a Gaussian policy with tanh squashing, automatic entropy tuning ($\alpha_0{=}0.2$, target entropy ${=}{-}\mathrm{dim}(\mathcal{A})$), and a replay buffer of $5{\times}10^{5}$ transitions. Training used $N_\mathrm{envs}{=}4$ parallel environments (vs.\ PPO's 128; the lower count is a result of JIT compilation constraints for SAC's multi-gradient update structure) and $N_\mathrm{steps}{=}512$ steps per rollout. Five seeds were trained for $3{\times}10^{7}$ environment steps each under Config-E settings (J=3, deficit normalization, position encoding, SLSQP-regret reward, focused wind sampling 0.3/0.3/0.4, $\pm10^\circ$ action bounds, downstream locking).
+
+\subsection{Results}
+At the matched $3{\times}10^{7}$-step budget, SAC achieves a five-seed-mean final episode return of $+185.2\,\pm\,37.1$ (regret-reward units), compared to PPO Config-E's $+334.3\,\pm\,217.0$. SAC reaches $55.4\%$ of PPO's mean reward with substantially lower inter-seed variance ($\pm37.1$ vs.\ $\pm217.0$), indicating more consistent but overall lower performance. The entropy coefficient $\alpha$ converges from $0.2$ to $0.010$--$0.028$ across seeds. The throughput gap is $13{\times}$ (${\sim}7{,}100$\,FPS for SAC vs.\ ${\sim}95{,}000$\,FPS for PPO), arising from SAC's three separate gradient computations per update.
+
+\subsection{Discussion}
+We attribute SAC's underperformance to: (i)~off-policy sample inefficiency when the reward signal is concentrated in a narrow wind regime (${\sim}9\%$ of conditions); (ii)~the squashed-Gaussian action parameterization penalizing large yaw increments; and (iii)~automatic entropy tuning requiring substantial interaction data before exploitation. A pure-JAX refactoring of the SAC gradient computation (bypassing NNX state merging inside traced functions, reducing per-step overhead from $56$\,ms to $14$\,ms) is expected to narrow the throughput gap.
+
+\section{Behavioral Cloning Baseline --- Full Details}
+
+\subsection{Implementation}
+A Behavioral Cloning (BC) baseline was trained via supervised regression to predict SLSQP-optimal yaw vectors from wind conditions, using a dataset of 1{,}000 SLSQP solutions sampled from the training distribution. The BC policy uses the same $[128,128]$ MLP architecture as the PPO actor and was trained for 100 epochs with MSE loss on the yaw-angle targets.
+
+\subsection{Results}
+Evaluated on 100 uniformly sampled wind conditions, the BC policy achieves a marginal mean gain of $\mathbf{-20.20\%}$ and an aligned-cube gain of $-31.50\%$ ($n{=}7$ aligned-cube conditions)---substantially worse than the zero-yaw baseline. The negative marginal gain indicates that the BC policy actively reduces farm power relative to doing nothing.
+
+\subsection{Discussion}
+The BC result suggests that direct supervised regression to SLSQP yaw vectors is insufficient under the present dataset ($1{,}000$ samples) and architecture ($[128,128]$ MLP), likely because the SLSQP yaw mapping is discontinuous near regime boundaries where turbines enter or exit the wake. A feedforward MLP trained on a finite sample may not capture these discontinuities, whereas the DRL policy learns through interaction and produces smoother yaw trajectories. Further work with larger expert datasets and specialized architectures would be needed to draw stronger conclusions about the relative merits of BC versus DRL for this problem.
+
+\section{JAX/NNX Implementation Efficiency}
+
+The initial Stable-Baselines3 PPO training loop was profiled, revealing that environment stepping dominates wall-clock time (${\sim}86\%$) while the PPO policy gradient accounts for only ${\sim}14\%$. This motivated a full on-device rewrite: the wake model was re-implemented in pure JAX, vectorized over turbines and parallel environments with \texttt{vmap}, and the entire (rollout + GAE + PPO update) loop was JIT-compiled. The result is a ${\sim}30{\times}$ throughput jump to ${\sim}10^{5}$\,FPS at $N_\mathrm{envs}{=}128$. A five-seed $6{\times}10^{7}$-step PPO run completes in ${\sim}10$\,min per seed on an NVIDIA RTX 4090. SAC training achieves ${\sim}7{,}100$\,FPS at $N_\mathrm{envs}{=}4$.
+
+\section{KL Early-Stopping Ablation}
+
+To quantify the independent contribution of KL-targeted early stopping, two Config-D variants were trained for $3{\times}10^{7}$ steps (3 seeds each): \textsc{kl\_on} (TARGET\_KL=0.015, default) and \textsc{kl\_off} (TARGET\_KL=100, effectively disabled). All other hyperparameters match Config-D. Table~S1 summarizes the final training metrics extracted from the saved checkpoints.
+
+\begin{table}[h]
+\centering
+\caption{KL early-stop ablation: final training metrics (3-seed mean $\pm$ std).}
+\label{tab:kl_ablation}
+\begin{tabular}{lcc}
+\toprule
+Metric & KL ON (0.015) & KL OFF (100) \\
+\midrule
+Final episode reward & $+344.0\,\pm\,76.5$ & $+311.0\,\pm\,113.1$ \\
+Mean KL divergence (last iter.) & $0.0021$ & $0.0021$ \\
+Early-stop trigger rate & $0.3\%$ & $0.0\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The KL ON configuration achieves a modestly higher final episode reward ($+344.0$ vs.\ $+311.0$) with slightly lower inter-seed variance. The early-stop mechanism triggers on only $0.3\%$ of iterations under the default TARGET\_KL=0.015, confirming that it functions as a safety valve rather than a primary regularization mechanism under Config-D. The near-zero trigger rate explains why the mean KL divergence is identical between the two configurations: the KL threshold is rarely exceeded, so the training trajectories are nearly indistinguishable. Cosine learning-rate decay and AdamW weight decay are therefore the dominant contributors to Config-D's improved training stability, with KL early-stopping providing a marginal additional safeguard.
+
+\end{document}

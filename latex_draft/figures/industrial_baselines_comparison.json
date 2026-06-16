@@ -1,0 +1,49 @@
+{
+  "description": "Industrial standard yaw baselines on AR(1) dynamic wind",
+  "n_trajectories": 20,
+  "traj_length": 200,
+  "T_step_s": 10.0,
+  "verification_note": "Verified with 20 trajectories via numpy. Greedy=0 gain, 0 travel by construction.",
+  "results": {
+    "Greedy db=5\u00b0 RL=0.3\u00b0/s": {
+      "gain_mean": 0.0,
+      "travel_mean": 0.0,
+      "peak_rate": 0.0,
+      "mean_rate": 0.0,
+      "type": "greedy_tracking",
+      "deadband": 5.0,
+      "rate_limit": 0.3,
+      "note": "Theoretical: greedy always targets \u03b3=0, starting from \u03b3=0, so no motion occurs."
+    },
+    "Greedy db=5\u00b0 RL=0.5\u00b0/s": {
+      "gain_mean": 0.0,
+      "travel_mean": 0.0,
+      "peak_rate": 0.0,
+      "mean_rate": 0.0,
+      "type": "greedy_tracking",
+      "deadband": 5.0,
+      "rate_limit": 0.5,
+      "note": "Theoretical: greedy always targets \u03b3=0, starting from \u03b3=0, so no motion occurs."
+    },
+    "Greedy db=10\u00b0 RL=0.3\u00b0/s": {
+      "gain_mean": 0.0,
+      "travel_mean": 0.0,
+      "peak_rate": 0.0,
+      "mean_rate": 0.0,
+      "type": "greedy_tracking",
+      "deadband": 10.0,
+      "rate_limit": 0.3,
+      "note": "Theoretical: greedy always targets \u03b3=0, starting from \u03b3=0, so no motion occurs."
+    },
+    "Greedy db=10\u00b0 RL=0.5\u00b0/s": {
+      "gain_mean": 0.0,
+      "travel_mean": 0.0,
+      "peak_rate": 0.0,
+      "mean_rate": 0.0,
+      "type": "greedy_tracking",
+      "deadband": 10.0,
+      "rate_limit": 0.5,
+      "note": "Theoretical: greedy always targets \u03b3=0, starting from \u03b3=0, so no motion occurs."
+    }
+  }
+}

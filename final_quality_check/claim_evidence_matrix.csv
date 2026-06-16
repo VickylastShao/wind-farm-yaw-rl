@@ -1,0 +1,18 @@
+Section,Claim,Evidence File,Config-E?,Has CI/Std?,Risk
+Abstract,gray-box model reduces yaw-case error 27.6%→6.6%,Table opt2t,True,False,low
+Abstract,controller achieves +4.91% ac gain,eval Config-E steady-state,True,True,low
+Abstract,"94.9% SLSQP recovery, CI [93.2%,95.9%]",bootstrap_ci_results.json,True,True,low
+Abstract,order of magnitude less yaw travel vs rate-limited LUT,eval_dynamic_optimized.py,True,False,medium
+Abstract,BC baseline fails (-20.20%),inline eval,True,False,medium
+Intro/C1,calibrated gray-box model on 3 CFD datasets,Section 3.2.4,True,False,low
+Intro/C2,closed-loop policy approximates SLSQP-grade behavior,eval Config-E + bootstrap,True,True,low
+Intro/C3,"actuator-aware dynamic operation, reduced yaw travel",gated DRL eval + lambda sweep,True,False,medium
+S4.2,Config-E lock_off degrades gain +2.42%→-0.46%,eval_floris_configE.py + lock retraining,True,False,low
+S4.3,"FLORIS Config-E: +5.02% ac, 4.1% erosion",results/configE_floris_cross_validation.json,True,False,low
+S4.3,"Config-E noise: σφ≤10°, σv≤1.0 no degradation",results/configE_noise_robustness.json,True,True,low
+S4.5,SLSQP recovery 94.9% at aligned-cube,bootstrap_ci_results.json,True,True,low
+S4.6,"gated DRL reduces travel 11%, 2° deadband 43%",eval_gated_fast.py,True,False,medium
+S4.6,λrate_med optimal for power-yaw trade-off,eval_rate_policies.py,False,False,medium
+S4.9,"5×5: +4.70% gain, 95.7% of 3×3",eval_p1_5x5_randomized.py,True,False,low
+Conclusion,FLORIS confirms conservative gain estimates,results/configE_floris_cross_validation.json,True,False,low
+Conclusion,gated activation + deadband viable for deployment,eval_gated_fast.py,True,False,medium

@@ -1,0 +1,48 @@
+{
+  "model_checkpoint": "/mnt/c/Users/vicks/MyWork/JAX-WFCOYAW-RL/codes/checkpoints_3x3/ppo_3x3_seed1_final.zip",
+  "vecnormalize": "/mnt/c/Users/vicks/MyWork/JAX-WFCOYAW-RL/codes/checkpoints_3x3/vecnormalize_seed1.pkl",
+  "step_mean_gain_pct": -0.20240149577257302,
+  "step_per_segment_pct": {
+    "phi=270": {
+      "mean": 2.145079137744443,
+      "std": 0.0,
+      "values": [
+        2.145079137744443,
+        2.145079137744443,
+        2.145079137744443
+      ]
+    },
+    "phi=280": {
+      "mean": -3.125986369389087,
+      "std": 4.440892098500626e-16,
+      "values": [
+        -3.1259863693890866,
+        -3.1259863693890866,
+        -3.1259863693890866
+      ]
+    },
+    "phi=260": {
+      "mean": -2.074740153322116,
+      "std": 0.0,
+      "values": [
+        -2.074740153322116,
+        -2.074740153322116,
+        -2.074740153322116
+      ]
+    },
+    "phi=275": {
+      "mean": 3.702796939422089,
+      "std": 0.0,
+      "values": [
+        3.702796939422089,
+        3.702796939422089,
+        3.702796939422089
+      ]
+    }
+  },
+  "step_best_segment_gain_pct": 3.702796939422089,
+  "step_settling_steps_mean": 3.3333333333333335,
+  "step_settling_steps_std": 4.0276819911981905,
+  "slow_mean_gain_pct": -1.6233449129924516e-07,
+  "fast_mean_gain_pct": -1.6017316740978444e-07
+}

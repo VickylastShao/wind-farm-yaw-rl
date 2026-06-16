@@ -1,0 +1,28 @@
+{
+  "seed": 0,
+  "backend": "sb3-torch-cpu",
+  "n_seeds": 1,
+  "n_envs": 64,
+  "total_steps_target": 50000,
+  "total_env_steps": 50000,
+  "n_steps": 512,
+  "batch_size": 1024,
+  "n_epochs": 10,
+  "wall_clock_s": 56.04169535636902,
+  "fps": 892.1928518052516,
+  "final_ep_rew_mean": -12.353222846984863,
+  "iterations": [
+    {
+      "iteration": 0,
+      "total_env_steps": 32768,
+      "ep_rew_mean": -8.078123092651367,
+      "ep_len_mean": 200.0
+    },
+    {
+      "iteration": 1,
+      "total_env_steps": 65536,
+      "ep_rew_mean": -12.353222846984863,
+      "ep_len_mean": 200.0
+    }
+  ]
+}

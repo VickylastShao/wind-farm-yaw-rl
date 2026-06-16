@@ -1,0 +1,63 @@
+{
+  "results": [
+    {
+      "name": "Raw DRL",
+      "mean_gain": 0.024740473589397155,
+      "aligned_gain": 0.06537289597084987,
+      "aep_gain": 0.025270974276180608,
+      "yaw_travel": 412.5796813964844,
+      "peak_rate": 1.8095000982284546,
+      "neg_frac": 0.026000000000000002,
+      "n_traj": 10,
+      "traj_len": 50,
+      "eval_time_s": 11.968554258346558
+    },
+    {
+      "name": "Gated DRL",
+      "mean_gain": 0.02136322402479418,
+      "aligned_gain": 0.06224544779685751,
+      "aep_gain": 0.023606603228979384,
+      "yaw_travel": 126.60208048820496,
+      "peak_rate": 1.8095001220703124,
+      "neg_frac": 0.026000000000000002,
+      "n_traj": 10,
+      "traj_len": 50,
+      "eval_time_s": 7.305849552154541
+    },
+    {
+      "name": "Hysteresis Gated",
+      "mean_gain": 0.0213654335839703,
+      "aligned_gain": 0.062247895972975975,
+      "aep_gain": 0.023607815971708832,
+      "yaw_travel": 156.43370661735534,
+      "peak_rate": 1.8095001220703124,
+      "neg_frac": 0.026000000000000002,
+      "n_traj": 10,
+      "traj_len": 50,
+      "eval_time_s": 7.429697036743164
+    },
+    {
+      "name": "Gated + Deadband",
+      "mean_gain": 0.0,
+      "aligned_gain": 0.0,
+      "aep_gain": 0.0,
+      "yaw_travel": 0.0,
+      "peak_rate": 0.0,
+      "neg_frac": 0.0,
+      "n_traj": 10,
+      "traj_len": 50,
+      "eval_time_s": 7.5168962478637695
+    }
+  ],
+  "config": {
+    "N_TRAJ": 10,
+    "TRAJ_LEN": 50,
+    "T_STEP": 10.0,
+    "SETTLE": 20,
+    "GATE_DPHI_IN": 15.0,
+    "GATE_DPHI_OUT": 20.0,
+    "GATE_V_MAX": 11.4,
+    "DEADBAND_DEG": 5.0,
+    "DYN_TAG": "sens_act10"
+  }
+}

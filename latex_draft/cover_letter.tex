@@ -1,0 +1,94 @@
+\documentclass[11pt]{article}
+\usepackage{geometry}\geometry{margin=1in}
+\usepackage{hyperref}
+\begin{document}
+
+\begin{flushright}
+\today
+\end{flushright}
+
+\vspace{1cm}
+
+\noindent
+Dear Editor,
+
+\vspace{0.5cm}
+
+\noindent
+We submit the manuscript entitled ``\textbf{Cooperative Yaw Control for Wind Farm Power Maximization Using a Calibrated Gray-Box Wake Model and Reinforcement Learning}'' for consideration for publication in \emph{Wind Energy}.
+
+\vspace{0.3cm}
+
+\noindent
+\textbf{Relevance to Wind Energy.}
+The manuscript addresses a core wind-farm control problem---cooperative yaw steering for wake-induced power loss mitigation---using a control-oriented engineering methodology. The contribution lies at the intersection of wake modeling (calibrated Bastankhah--Port\'e-Agel Gaussian model, jointly fitted on three CFD datasets and cross-validated against FLORIS and Horns Rev~I LES), closed-loop yaw control (real-time policy via reinforcement learning with sub-millisecond inference), and actuator-aware dynamic operation (gated regime-conditional activation with yaw deadband). We believe this aligns with \emph{Wind Energy}'s readership of wind-farm operators, control engineers, and wake-modeling researchers.
+
+\vspace{0.3cm}
+
+\noindent
+\textbf{Problem and approach.}
+Wake-induced power losses motivate cooperative yaw control, yet conventional static optimization produces yaw vectors tied to single inflow snapshots and must be re-solved offline---a pipeline incompatible with the second-to-minute variability of the atmospheric boundary layer. We train a closed-loop reinforcement-learning policy on a CFD-calibrated gray-box wake model. The policy produces actuator-feasible yaw commands at sub-millisecond latency and is evaluated under steady-state, dynamic-wind, and noise-perturbed conditions.
+
+\vspace{0.3cm}
+
+\noindent
+\textbf{Key findings.}
+\begin{itemize}
+\item The calibrated wake model reduces two-turbine yaw-case power-prediction error from $27.6\%$ to $6.6\%$, validated against Horns Rev~I LES.
+\item Under steady-state evaluation the learned policy achieves $+4.91\%$ farm-power gain in wake-aligned regimes, recovering $94.9\%$ of the SLSQP static optimum (bootstrap 95\% CI $[93.2\%, 95.9\%]$).
+\item FLORIS cross-validation on $3{,}000$ conditions with five independent seeds yields $+5.02\%$ aligned-cube gain (4.1\% erosion relative to gray-box), confirming conservative gain estimates.
+\item Under dynamic AR(1) wind, a gated activation strategy with $2^\circ$ industrial yaw deadband reduces cumulative yaw travel by $43\%$ while retaining cooperative gains.
+\item Observation-noise tests (wind direction up to $10^\circ$, wind speed up to $1.0$\,m/s, yaw angle up to $2^\circ$) show negligible performance degradation.
+\item A Behavioral Cloning baseline that directly imitates the SLSQP oracle fails catastrophically ($-20.20\%$ marginal gain), confirming that the learned policy is structurally distinct from supervised imitation.
+\end{itemize}
+
+\vspace{0.3cm}
+
+\noindent
+\textbf{Scope and limitations.}
+This is a simulation and cross-validation study. The gray-box model is control-oriented; FLORIS serves as an independent benchmark. No field SCADA validation or aeroelastic load assessment has been performed. These limitations are stated explicitly in the manuscript.
+
+\vspace{0.3cm}
+
+\noindent
+\textbf{Originality.}
+This work is original, has not been published elsewhere, and is not under consideration by another journal. All authors have approved the manuscript and this submission.
+
+\vspace{0.5cm}
+
+\noindent
+\textbf{Corresponding Author:}\\
+Zhuang Shao\\
+China Resources Power Technology Research Institute Co., Ltd.\\
+Shenzhen 518000, Guangdong Province, China\\
+E-mail: shaozhuang@crpower.com.cn\\
+ORCID: 0000-0003-2496-0797
+
+\vspace{0.3cm}
+
+\noindent
+\textbf{Co-authors:}\\
+Lijun Lei (Rundian Energy Science and Technology Co., Ltd.)\\
+Peng Wang (North China University of Water Resources and Electric Power)\\
+Liang Zheng (Rundian Energy Science and Technology Co., Ltd.)\\
+Jie Zhou (Rundian Energy Science and Technology Co., Ltd.)
+
+\vspace{0.3cm}
+
+\noindent
+\textbf{Suggested Reviewers:}
+\begin{itemize}
+\item Jianxin Zhou (zjx@seu.edu.cn), Southeast University
+\item Zhenlong Wu (wuzhenlong2020@zzu.edu.cn), Zhengzhou University
+\item Cong Yu (congy@jhun.edu.cn), Jianghan University
+\item Hui Gu (guhuini@126.com)
+\end{itemize}
+
+\vspace{0.5cm}
+
+\noindent
+Sincerely,\\[0.3cm]
+Zhuang Shao\\
+(on behalf of all authors)
+
+\end{document}

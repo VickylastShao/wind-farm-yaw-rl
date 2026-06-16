@@ -1,0 +1,25 @@
+{
+  "description": "SLSQP expert dataset for offline DRL training",
+  "n_expert": 5,
+  "eval_seed": 20260605,
+  "n_slsqp_starts": 2,
+  "n_turbines": 9,
+  "obs_dim": 30,
+  "phi_range": [
+    173.0,
+    353.0
+  ],
+  "v_range": [
+    6.0,
+    16.0
+  ],
+  "statistics": {
+    "mean_slsqp_gain_pct": 0.06211167573928833,
+    "std_slsqp_gain_pct": 0.12422334402799606,
+    "min_slsqp_gain_pct": 0.0,
+    "max_slsqp_gain_pct": 0.31055837869644165,
+    "mean_abs_opt_yaw_deg": 0.27164226770401,
+    "max_abs_opt_yaw_deg": 6.1119513511657715
+  },
+  "wall_clock_s": 4.312671899795532
+}

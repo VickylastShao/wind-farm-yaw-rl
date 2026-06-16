@@ -1,0 +1,21 @@
+Section,Claim,Evidence File,Config-E?,Has CI?,Needs Rerun?,Action
+Abstract,gray-box model reduces two-turbine yaw-case error from 27.6% to 6.6%,Table 3 (opt2t),True,False,False,keep
+Abstract,controller achieves +4.91% farm-power gain in aligned-cube regime,eval_p0c_randomized.py (Config-E),True,True,False,keep
+Abstract,"recovering 94.9% of SLSQP optimum, bootstrap CI [93.2%, 95.9%]",compute_bootstrap_ci.py → bootstrap_ci_results.json,True,True,False,keep
+Abstract,order of magnitude less yaw travel than rate-limited SLSQP lookup table,eval_dynamic_optimized.py → dynamic_wind_optimized.json,True,False,False,"keep, verify numbers"
+Abstract,BC baseline fails catastrophically (-20.20%),inline eval (not scripted),True,False,False,move to Supplementary or remove
+Intro/Contrib 1,gray-box wake model jointly fitted on three CFD datasets,Section 3.2.4,True,False,False,keep
+Intro/Contrib 2,PPO controller achieves SLSQP-grade performance in wake-aligned regimes,eval_p0c_randomized.py,True,True,False,"keep, soften claim about 'SLSQP-grade'"
+Intro/Contrib 3,actuator-aware dynamic operation with reduced yaw travel,eval_dynamic_optimized.py,True,False,True,"keep, need gated DRL results"
+Section 4.2,"lock ablation: lock_on +0.53%, lock_off -2.82%",ablation_downstream_lock.py (Config-A),False,False,True,MUST redo with Config-E
+Section 4.3,"FLORIS cross-val: gray-box +0.42%, FLORIS +0.47%",cross_validate_floris.py (Config-A),False,False,True,MUST redo with Config-E
+Section 4.3,observation noise: <1% gain erosion at σφ=10°,eval_observation_noise_robustness.py (Config-A),False,False,True,MUST redo with Config-E
+Section 4.5,SLSQP recovery 94.9% at aligned-cube,compute_bootstrap_ci.py,True,True,False,keep
+Section 4.6,"Config-E dynamic wind: -0.14% gain, 29.7° travel",dynamic_wind_optimized.json,True,False,False,"keep, add gated DRL"
+Section 4.6,"gated DRL: +2.19% gain, 13.3° travel (estimated)",eval_gated_drl.py (analytical estimate),True,False,True,MUST run full numerical eval
+Section 4.7,PPO vs SAC: SAC achieves 55.4% of PPO mean reward,checkpoints_3x3_sac_fair/metrics_seed*.json,True,False,False,move to Supplementary
+Section 4.7.1,BC baseline: -20.20% marginal gain,inline eval (not scripted),False,False,False,move to Supplementary
+Section 4.8,Parameter sensitivity: gain robust within ±10%,eval_param_perturbation_v2.py,True,False,False,"keep, add to results"
+Section 4.9,"5×5 layout: +4.70% gain, 95.7% of 3×3 headline",eval_p1_5x5_randomized.py,True,False,False,keep
+Conclusion,SAC achieves 55.4% of PPO mean reward,checkpoints_3x3_sac_fair/,True,False,False,move to Supplementary
+Conclusion,BC baseline -20.20% confirms DRL learns distinct strategy,inline eval,False,False,False,move to Supplementary

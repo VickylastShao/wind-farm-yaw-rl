@@ -1,0 +1,121 @@
+{
+  "description": "R3 & S2: Bootstrap CI + regime sensitivity for sens_act10",
+  "recovery_rate": {
+    "method": "ratio-of-means bootstrap (avoids per-condition ratio instability)",
+    "aligned_cube": {
+      "point_pct": 94.94,
+      "ci95": [
+        93.18,
+        95.87
+      ],
+      "n_conditions": 51
+    },
+    "all_conditions": {
+      "point_pct": 45.65,
+      "ci95": [
+        34.07,
+        56.59
+      ],
+      "n_conditions": 500
+    },
+    "note": "Seed-sampling CI requires per-seed per-condition data. The cross-seed evaluation (seed 20260609, recovery=90.5%) provides an independent estimate. For the paper, recommend reporting both: condition-sampling CI (uncertainty from condition sampling) and cross-seed evaluation (uncertainty from random seed)."
+  },
+  "regime_sensitivity": {
+    "phi_half_widths": [
+      5,
+      10,
+      15,
+      20,
+      25,
+      30
+    ],
+    "v_maxes": [
+      10.0,
+      10.5,
+      11.0,
+      11.4,
+      12.0
+    ],
+    "by_phi_threshold": [
+      {
+        "|dphi|_threshold": 5,
+        "n_conditions": 16,
+        "drl_gain_pct": 13.6749,
+        "slsqp_gain_pct": 14.1731,
+        "recovery_pct": 96.48
+      },
+      {
+        "|dphi|_threshold": 10,
+        "n_conditions": 34,
+        "drl_gain_pct": 7.3634,
+        "slsqp_gain_pct": 7.7534,
+        "recovery_pct": 94.97
+      },
+      {
+        "|dphi|_threshold": 15,
+        "n_conditions": 51,
+        "drl_gain_pct": 4.9089,
+        "slsqp_gain_pct": 5.1708,
+        "recovery_pct": 94.94
+      },
+      {
+        "|dphi|_threshold": 20,
+        "n_conditions": 72,
+        "drl_gain_pct": 3.4772,
+        "slsqp_gain_pct": 3.6642,
+        "recovery_pct": 94.9
+      },
+      {
+        "|dphi|_threshold": 25,
+        "n_conditions": 88,
+        "drl_gain_pct": 2.8355,
+        "slsqp_gain_pct": 3.0617,
+        "recovery_pct": 92.61
+      },
+      {
+        "|dphi|_threshold": 30,
+        "n_conditions": 111,
+        "drl_gain_pct": 2.2387,
+        "slsqp_gain_pct": 2.5005,
+        "recovery_pct": 89.53
+      }
+    ],
+    "by_v_threshold": [
+      {
+        "v_threshold": 10.0,
+        "n_conditions": 37,
+        "drl_gain_pct": 5.6391,
+        "slsqp_gain_pct": 5.9474,
+        "recovery_pct": 94.82
+      },
+      {
+        "v_threshold": 10.5,
+        "n_conditions": 41,
+        "drl_gain_pct": 5.3979,
+        "slsqp_gain_pct": 5.6874,
+        "recovery_pct": 94.91
+      },
+      {
+        "v_threshold": 11.0,
+        "n_conditions": 46,
+        "drl_gain_pct": 4.8112,
+        "slsqp_gain_pct": 5.0692,
+        "recovery_pct": 94.91
+      },
+      {
+        "v_threshold": 11.4,
+        "n_conditions": 51,
+        "drl_gain_pct": 4.9089,
+        "slsqp_gain_pct": 5.1708,
+        "recovery_pct": 94.94
+      },
+      {
+        "v_threshold": 12.0,
+        "n_conditions": 59,
+        "drl_gain_pct": 4.8565,
+        "slsqp_gain_pct": 5.5884,
+        "recovery_pct": 86.9
+      }
+    ]
+  }
+}

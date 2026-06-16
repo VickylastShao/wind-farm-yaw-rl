@@ -1,0 +1,40 @@
+{
+  "seed": 0,
+  "backend": "sb3-torch-cpu",
+  "n_seeds": 1,
+  "n_envs": 8,
+  "total_steps_target": 50000,
+  "total_env_steps": 50000,
+  "n_steps": 2048,
+  "batch_size": 256,
+  "n_epochs": 10,
+  "wall_clock_s": 65.72680902481079,
+  "fps": 760.7245923216175,
+  "final_ep_rew_mean": -3.788569211959839,
+  "iterations": [
+    {
+      "iteration": 0,
+      "total_env_steps": 16384,
+      "ep_rew_mean": -35.568382263183594,
+      "ep_len_mean": 200.0
+    },
+    {
+      "iteration": 1,
+      "total_env_steps": 32768,
+      "ep_rew_mean": -28.564678192138672,
+      "ep_len_mean": 200.0
+    },
+    {
+      "iteration": 2,
+      "total_env_steps": 49152,
+      "ep_rew_mean": -4.527819633483887,
+      "ep_len_mean": 200.0
+    },
+    {
+      "iteration": 3,
+      "total_env_steps": 65536,
+      "ep_rew_mean": -3.788569211959839,
+      "ep_len_mean": 200.0
+    }
+  ]
+}

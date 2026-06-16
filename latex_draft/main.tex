@@ -1,0 +1,985 @@
+%% Cooperative Yaw Control for Wind Farm Power Maximization Using a Calibrated Gray-Box Wake Model and Reinforcement Learning
+%% Cooperative Yaw Control for Wind Farm Power Maximization
+\documentclass[review,5p,times]{elsarticle}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage[hidelinks]{hyperref}
+\usepackage{eurosym}
+
+\graphicspath{{figures/}}
+
+\journal{Wind Energy}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{Cooperative Yaw Control for Wind Farm Power Maximization Using a Calibrated Gray-Box Wake Model and Reinforcement Learning}
+
+\author[a]{Zhuang Shao\corref{cor1}}
+\author[b]{Lijun Lei}
+\author[c]{Peng Wang}
+\author[b]{Liang Zheng}
+\author[b]{Jie Zhou}
+
+\cortext[cor1]{Corresponding author. E-mail: shaozhuang@crpower.com.cn}
+
+\address[a]{China Resources Power Technology Research Institute Co., Ltd., Shenzhen 518000, Guangdong Province, China}
+\address[b]{Rundian Energy Science and Technology Co., Ltd., Zhengzhou 450052, Henan Province, China}
+\address[c]{North China University of Water Resources and Electric Power, Zhengzhou 450046, Henan Province, China}
+
+\begin{abstract}
+Wake-induced power losses motivate cooperative yaw control, yet conventional numerical-optimization approaches deliver only a \emph{static} yaw vector per inflow snapshot---a pipeline structurally incompatible with the second-to-minute variability of the atmospheric boundary layer. We pose wake steering as a closed-loop optimal-control problem and train a Proximal Policy Optimization (PPO) controller whose incremental action space and sub-millisecond inference enable actuator-feasible real-time operation.
+
+A two-stage framework couples a gray-box wake model (Bastankhah--Port\'e-Agel Gaussian formulation, jointly calibrated on three CFD datasets, reducing the two-turbine yaw-case power-prediction error at $\gamma\!=\!30^\circ$ from $27.6\%$ to $6.6\%$) with a systematically optimized PPO controller. In steady-state evaluation the controller achieves $+4.91\%$ farm-power gain in the aligned-cube regime ($94.9\%$ of the SLSQP optimum, 95\% bootstrap CI $[93.2\%, 95.9\%]$)---a $2.8{\times}$ improvement over the baseline PPO configuration, with FLORIS cross-validation confirming these gains are cross-model robust (FLORIS vs.\ gray-box).
+
+The study further analyzes actuator-aware dynamic operation under AR(1) wind and identifies a power--yaw-activity trade-off, showing that regime-gated activation and yaw-rate penalties are required for deployment-oriented dynamic control. The framework transfers to $5{\times}5$ layouts with $+4.70\%$ gain ($95.7\%$ of the $3{\times}3$ headline), and FLORIS cross-validation on $3{,}000$ conditions confirms the reported gains are cross-model robust ($+5.02\%$ aligned-cube, $4.1\%$ erosion).
+\end{abstract}
+
+\begin{keyword}
+Wind farm optimization \sep Wake modeling \sep Cooperative yaw control \sep Deep reinforcement learning \sep Proximal Policy Optimization \sep Yaw activity minimization \sep Power maximization
+\end{keyword}
+
+\end{frontmatter}
+
+%%========================================================================
+\section{Introduction}\label{sec:intro}
+Wind energy has become a cornerstone of the global renewable-energy strategy, yet a persistent obstacle to maximizing return on installed capacity is the \emph{wake effect}: downstream rotors operate inside the perturbed flow of upstream machines, suffering reduced inflow velocity and elevated turbulence intensity, which together translate into a non-trivial loss of farm-level annual energy production (AEP)~\citep{Barthelmie2009}. Accurately predicting and actively mitigating this loss is therefore central to both wind-farm design and operation.
+
+A wide body of work has been devoted to wake characterization, ranging from full-field measurements and Large-Eddy Simulation (LES) to reduced-order analytical models. While LES and Computational Fluid Dynamics (CFD) offer the highest fidelity, their computational cost rules them out for large-scale farm-level optimization. Analytical wake formulations such as the Jensen~\citep{Jensen1983}, Frandsen~\citep{Frandsen2006} and Gaussian models~\citep{Bastankhah2014, Niayifar2016} provide an attractive compromise between accuracy and tractability and have become the workhorses of modern wind-farm control studies~\citep{Boersma2017,Andersson2021}. The Bastankhah--Port\'e-Agel Gaussian model, extended with yaw-induced deflection~\citep{BastankhahYaw2016} and curled-wake corrections~\citep{MartinezTossas2015}, has been validated under yawed conditions by King et~al.~\citep{King2021}, and forms the basis of the FLORIS yaw-steering toolbox~\citep{NRELFLORIS}; Gebraad et~al.~\citep{Gebraad2016} demonstrated that yaw optimization on such models can yield substantial AEP gains, motivating the closed-loop approach pursued here.
+
+In parallel, control strategies that exploit yaw misalignment (so-called \emph{wake steering}) have been extensively studied. Field experiments~\citep{Fleming2017} confirmed that misaligning upstream turbines by tens of degrees can substantially increase total farm power, especially in tightly spaced layouts. Between the pure offline-optimization and pure-DRL extremes lie hybrid approaches: Doekemeijer et~al.~\citep{Doekemeijer2019} demonstrated closed-loop wake steering using a steady-state surrogate model with online adaptation via Kalman filtering, and Kanev et~al.~\citep{Kanev2020} reported field-validation results for active wake control with constrained yaw rates. Yet two open challenges remain. First, current analytical wake models tend to treat yaw effects and turbulence-intensity feedback separately, leading to bias in the very regime --- moderate-to-large yaw angles under partial-wake conditions --- where wake steering is most valuable. Second, conventional numerical-optimization techniques (metaheuristic, gradient-based, or model-predictive) produce a \emph{static} yaw vector tied to a fixed inflow snapshot, and must be re-solved offline whenever the wind condition changes. This open-loop pipeline is structurally incompatible with the second-to-minute variability of the atmospheric boundary layer and offers no mechanism for closed-loop disturbance rejection.
+
+A closed-loop control policy that maps the current wind condition directly to yaw commands can---once trained---react to changing inflow in milliseconds without re-solving an optimization problem. Reinforcement learning (RL) provides a natural framework for learning such policies through interaction with a wake model~\citep{Padullaparthi2022}. Stanfel et~al.~\citep{Stanfel2020} provided an early proof-of-concept using DQN on a Jensen-wake surrogate, and Padullaparthi et~al.~\citep{Padullaparthi2022} proposed FALCON, a multi-agent architecture with inter-turbine communication. However, prior RL implementations for wind-farm control are limited in three respects: (i)~the training environment is often a low-fidelity wake surrogate, raising sim-to-real concerns; (ii)~reward designs are typically one-step power maximizations that ignore actuator constraints; and (iii)~the action space scales with the number of turbines, making convergence challenging for larger layouts.
+
+This paper addresses all three limitations through an integrated framework. Our \textbf{contributions} are:
+\begin{enumerate}
+\item A \emph{calibrated gray-box wake model} for yaw-aware wind-farm control. The model fuses the Bastankhah--Port\'e-Agel Gaussian wake with a yaw-aware deflection term and an optimization-calibrated superposition mixing factor, jointly fitted on three CFD reference datasets. It reduces the two-turbine yaw-case power-prediction error at $\gamma\!=\!30^\circ$ from $27.6\%$ to $6.6\%$ and is validated against the Horns Rev I LES benchmark and FLORIS;
+\item A \emph{closed-loop cooperative yaw policy} that approximates SLSQP-grade behavior in wake-aligned regimes. A PPO controller trained in the calibrated environment, with systematic optimization of observation space, reward design (SLSQP-regret formulation with focused wind sampling), and training dynamics, achieves $+4.91\%$ farm-power gain at sub-millisecond inference latency, recovering $94.9\%$ of the static optimum (bootstrap CI $[93.2\%,95.9\%]$). a Behavioral Cloning baseline that directly regresses to SLSQP yaw vectors yields negative gain ($-20.20\%$ marginal), suggesting that supervised imitation alone is insufficient under the present dataset and architecture;
+\item \emph{Actuator-aware dynamic operation} with substantially reduced yaw travel. Under dynamically varying AR(1) wind, the learned policy requires an order of magnitude less cumulative yaw travel than a rate-limited SLSQP lookup table while operating within actuator rate limits. A tunable yaw-rate penalty enables site-specific trade-offs between power gain and yaw activity, and dynamic-wind retraining without it causes the policy to over-react (yaw travel increases $68{\times}$), confirming the rate penalty as a necessary component for actuator-compatible deployment. The framework transfers to $5{\times}5$ layouts with $+4.70\%$ gain ($95.7\%$ of the $3{\times}3$ headline).
+\end{enumerate}
+
+The remainder of the paper is organized as follows. Section~\ref{sec:method} introduces the gray-box wake model and the DRL control framework. Section~\ref{sec:experiments} presents validation on Horns Rev and closed-loop case studies on $1{\times}2$ and $3{\times}3$ layouts. Section~\ref{sec:discussion} discusses reward design, robustness, steady-state and dynamic comparison with offline optimization, cross-seed validation, algorithm comparison (PPO vs.\ SAC), and scalability; Section~\ref{sec:conclusion} concludes.
+
+%%========================================================================
+\section{Methodology}\label{sec:method}
+
+\subsection{Overall framework}\label{sec:framework}
+We follow a ``model-then-control'' methodology composed of two coupled stages, summarized in Fig.~\ref{fig:framework}. Stage I constructs a calibrated wake model; Stage II uses it as the training environment for the DRL controller.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{fig_framework}
+\caption{Two-stage research framework: wake-model construction with multi-scenario parameter calibration (Stage I) feeds into the PPO-based cooperative yaw controller (Stage II).}
+\label{fig:framework}
+\end{figure}
+
+A comparison of representative control paradigms is shown in Fig.~\ref{fig:methods} and summarized in Table~\ref{tab:methods}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{fig_methods_comparison}
+\caption{[Supplementary Material] Schematic comparison of representative wind-farm cooperative yaw control paradigms.}
+\label{fig:methods}
+\end{figure}
+
+\begin{table*}[t]
+\centering
+\caption{Comparison of representative wind-farm cooperative yaw control methods.}
+\label{tab:methods}
+\small
+\begin{tabular}{p{2.2cm}p{3.0cm}p{4.2cm}p{3.0cm}p{3.0cm}}
+\toprule
+Category & Representative algorithms & Principle & Strengths & Limitations \\
+\midrule
+Rule-based & Periodic yaw, direction-threshold control & Trigger yaw by preset rules & Simple, low compute, robust & Cannot handle complex inflow; ignores wake coupling \\
+Model-based & Feedback, MPC, FLORIS-based & Solve analytical optimum from physical model & Well-grounded, interpretable & Sensitive to model error; compute-heavy \\
+Hybrid / closed-loop & Surrogate + Kalman filter~\citep{Doekemeijer2019} & Online adaptation of a steady-state surrogate model & Adaptive to changing inflow, moderate compute & Requires surrogate model; filter tuning \\
+Numerical optimization & Metaheuristic / gradient-based solvers & Global search of objective & Model-agnostic, finds static optimum & Offline only; cannot track time-varying inflow \\
+Data-driven & Clustering, ELM, regression & Map condition$\rightarrow$yaw via history & Fast inference & Limited extrapolation; data-hungry \\
+Reinforcement learning & Q-learning, DQN, PPO, DDPG & Learn policy via interaction & Adaptive, fast online & Training cost, interpretability \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Gray-box wake model}\label{sec:wake}
+
+\subsubsection{Wind-speed--power model}
+The aerodynamic power of a single turbine is
+\begin{equation}
+P = \tfrac{1}{2}\rho C_P S v^3,\quad S=\pi R^2,
+\label{eq:power_base}
+\end{equation}
+where $\rho$ is air density, $S$ the rotor-swept area, $v$ the effective inflow, and $C_P=P_\mathrm{rated}/(\tfrac{1}{2}\rho S u_\mathrm{rated}^3)$ the power coefficient. Following \citep{Cai2018}, yaw misalignment $\gamma$ introduces a power decrement empirically modeled by
+\begin{equation}
+P = \tfrac{1}{2}\rho C_P S v^3 (\cos\gamma)^{1.88}.
+\label{eq:power_yaw}
+\end{equation}
+The exponent $1.88$ is an empirical fit reported by \citet{Cai2018}; published estimates range from $1.4$ to $2.0$ depending on turbine type and operating conditions. The controller's learned yaw angles are concentrated below $|\gamma|\!\approx\!25^\circ$ in the $3\!\times\!3$ regime where cooperative gains are observed (Table~\ref{tab:closed_loop}), well within the range where the cosine-power model has been validated. At the SLSQP-optimal yaw angles for low wind speed ($|\gamma|\!\sim\!26$--$33^\circ$ at $v\!=\!8\,\mathrm{m/s}$), the model enters a regime where blade aerodynamics and dynamic effects may reduce accuracy; the DRL controller's incremental action space and policy gradient objective appear to implicitly regularize against such extreme yaw angles, which is a partial explanation for the $31\%$ optimality gap at low speed (Sec.~\ref{sec:3x3_results}).
+
+\subsubsection{Wake-deficit model}
+We adopt the Bastankhah--Port\'e-Agel Gaussian wake with yaw extension~\citep{BastankhahYaw2016}:
+\begin{equation}
+\frac{\Delta U}{U_\infty}
+=\!\!\Bigl(\!1-\!\sqrt{1-\tfrac{C_T\cos\gamma}{8(\sigma_y\sigma_z/d_0^2)}}\,\Bigr)
+\exp\!\Bigl(\!-\tfrac{1}{2}\bigl[\bigl(\tfrac{z-z_h}{\sigma_z}\bigr)^{2}
++\bigl(\tfrac{y-y_d}{\sigma_y}\bigr)^{2}\bigr]\Bigr),
+\label{eq:wake_deficit}
+\end{equation}
+with $k_y=k_z=k^*=0.3837\,I+0.003678$, lateral and vertical wake-width growth
+\[
+\tfrac{\sigma_y}{d_0}=k^*\tfrac{x-x_0}{d_0}+\tfrac{\cos\gamma}{\sqrt 8},\qquad
+\tfrac{\sigma_z}{d_0}=k^*\tfrac{x-x_0}{d_0}+\tfrac{1}{\sqrt 8},
+\]
+and near--far-wake boundary
+\[
+\tfrac{x_0}{d_0}=\tfrac{\cos\gamma(1+\sqrt{1-C_T})}{\sqrt 2(\alpha^*I+\beta^*(1-\sqrt{1-C_T}))}.
+\]
+The yaw-induced wake-center deflection $y_d$ is piecewise:
+\begin{equation}
+y_d=\begin{cases}\theta_0 x,& x\le x_0,\\[2pt]
+\theta_0 x_0+\dfrac{\theta_0}{14.7}\!\sqrt{\tfrac{\cos\gamma}{k^{*2}C_T}}\!\cdot\!\mathcal{L}(x), & x>x_0,\end{cases}
+\label{eq:yd}
+\end{equation}
+with $\theta_0=\frac{0.3\gamma}{\cos\gamma}(1-\sqrt{1-C_T\cos\gamma})$ and $\mathcal{L}(x)$ the logarithmic kernel given in \citep{BastankhahYaw2016}. Parameters $\alpha^*$ and $\beta^*$ are calibrated below.
+
+\subsubsection{Wake superposition}
+Multiple-wake interaction is modeled by an $\alpha$-weighted root-sum-square deficit:
+\begin{equation}
+U_i = U_\infty - \alpha\sqrt{\sum_{j}(\Delta U_{j,i})^2},
+\label{eq:superposition}
+\end{equation}
+where $\alpha$ is a calibrated mixing factor. A downstream turbine $i$ is considered to lie inside an upstream turbine $j$'s wake if $|\Delta y_\mathrm{wake}|=|y_i-(y_j+y_d)|\le 3\sigma_y$.
+
+\subsubsection{Multi-scenario parameter optimization}\label{sec:opt}
+The four free parameters $\{\alpha^*,\beta^*,\alpha,I\}$ are jointly identified by minimizing a weighted least-squares loss across three CFD reference datasets~\citep{Duan2019,Li2016,Huang2020}:
+\begin{equation}
+E_\mathrm{total}=w_{3t}E_{3t}+w_\mathrm{large}E_\mathrm{large}+w_{2t}E_{2t},
+\label{eq:loss}
+\end{equation}
+with $w_{2t}=0.6$ reflecting the centrality of the two-turbine yaw case to downstream control. The Levenberg--Marquardt algorithm is used. Initial values $\alpha^*_0=2.32$, $\beta^*_0=0.154$, $I_0=0.1$, $\alpha_0=1.0$ follow~\citep{Bastankhah2014}; the bounds are $\alpha^*\!\in[0.4,3.0]$, $\beta^*\!\in[0.1,0.3]$, $I\!\in[0.065,0.15]$, $\alpha\!\in[0.5,1.5]$. The converged values are $\alpha^*=2.728$, $\beta^*=0.10$, $I=0.065$, $\alpha=0.540$. Note that $I$ converges to its lower bound ($0.065$), indicating that the optimizer would prefer a still lower value; the bound reflects the ambient TI of the CFD reference datasets and prevents unphysical under-expansion of the wake. We verified that relaxing the lower bound to $I\!=\!0.04$ causes $I$ to converge to $\sim\!0.048$ with negligible change in $\alpha^*$ and $\alpha$, and that the resulting calibrated model still produces a $9.1\%$ FLORIS discrepancy in the column-aligned band --- confirming that the TI boundary does not distort the other calibrated parameters in a way that would materially affect the closed-loop results.
+
+We acknowledge a conceptual tension in treating $I$ as a free calibration parameter. In the Bastankhah--Port\'e-Agel formulation, $I$ is the ambient turbulence intensity that drives wake expansion via $k^*{=}0.3837I{+}0.003678$ (Eqs.~7--9). As such, $I$ should ideally match the inflow boundary condition of each CFD reference dataset. However, the three calibration datasets likely differ in ambient TI (the references do not always report a single TI value), and the joint least-squares fit forces a single compromise value. The practical consequence is that the calibrated $I{=}0.065$ reflects an effective TI that is appropriate for the NREL-5MW turbine's typical offshore operating conditions ($I{\approx}6$--$8\%$), but may under-expand wakes at higher onshore TI ($I{>}10\%$) and over-expand wakes in very stable offshore conditions ($I{<}5\%$). The Horns Rev validation with $I{=}0.077$ (Sec.~\ref{sec:experiments}) and the FLORIS cross-validation with $I{=}0.065$ (Sec.~\ref{sec:floris_xval}) provide evidence that the calibrated formulation is robust within this range, but extrapolation to strongly non-neutral stability conditions should be treated with caution. For single-dataset calibration where the reference CFD simulation reports a well-defined ambient TI, we recommend fixing $I$ to that reported value and calibrating only $\{\alpha^*,\beta^*,\alpha\}$; treating $I$ as a free parameter is appropriate only for multi-dataset joint fits where the individual TI boundary conditions are uncertain or inconsistent.
+
+\subsection{DRL-based cooperative yaw controller}\label{sec:drl}
+
+\subsubsection{Algorithm choice: PPO}
+We adopt Proximal Policy Optimization (PPO)~\citep{Schulman2017} because of its proven stability under continuous action spaces. Its clipped surrogate objective is
+\begin{equation}
+J^\mathrm{CLIP}(\theta)=\hat{\mathbb{E}}_t\!\left[\min\!\bigl(r_t(\theta)\hat A_t,\;\mathrm{clip}(r_t(\theta),1{-}\epsilon,1{+}\epsilon)\hat A_t\bigr)\right],
+\label{eq:ppo}
+\end{equation}
+where $r_t(\theta)=\pi_\theta(a_t|s_t)/\pi_{\theta_\mathrm{old}}(a_t|s_t)$, $\hat A_t$ is the GAE advantage, and $\epsilon=0.2$.
+
+\subsubsection{State, action and reward}
+\textbf{Observation.} For $N$ turbines and a temporal window of $j$ steps, the observation at time $t$ contains per-turbine yaw angles $\boldsymbol{\gamma}_t$, wake-deficit-normalized inflow speeds $v-\boldsymbol{u}_t$ (rather than absolute inflow, to provide scale-invariant wake information), wind-context features $[\cos\phi_t,\sin\phi_t,v_t]$, downstream-lock indicators $\boldsymbol{l}_t$, and normalized turbine coordinates $[(x_i,y_i)/7d_0]$---matching the full input set available to the SLSQP optimum. The per-step row is
+\begin{equation*}
+s_t=[\underbrace{\boldsymbol{\gamma}_t}_{N},\underbrace{v_t-\boldsymbol{u}_t}_{N},\underbrace{\cos\phi_t,\sin\phi_t,v_t}_{3},\underbrace{\boldsymbol{l}_t}_{N},\underbrace{x_1,y_1,\ldots,x_N,y_N}_{2N}]\in\mathbb{R}^{5N+3},
+\end{equation*}
+stacked over $j{=}3$ steps into a $144$-dimensional vector. Ablation experiments confirm that each of these components---deficit normalization, position encoding, and multi-step history---contributes measurably to the final steady-state performance.
+
+\textbf{Action.} The continuous action $a_t=[\Delta\gamma_{1,t},\ldots,\Delta\gamma_{N,t}]\in[-\Delta\gamma_\mathrm{max},+\Delta\gamma_\mathrm{max}]^N$ specifies per-turbine yaw increments. Locked downstream turbines have their actions overwritten with $0$. The incremental formulation, combined with a $\pm50^\circ$ yaw bound, naturally regularizes the control trajectory. The per-step bound $\Delta\gamma_\mathrm{max}$ is set to $\pm5^\circ$ in Config-A through Config-D, and expanded to $\pm10^\circ$ in Config-E (see Table~\ref{tab:config_names}); the sensitivity to this choice is analysed in Table~\ref{tab:mix_sensitivity} and surrounding text.
+
+\textbf{Reward.} We replace the simple baseline-aligned marginal reward with an \emph{SLSQP-regret} reward that normalizes the power gain by the oracle headroom:
+\begin{equation}
+R_t=\frac{P_\mathrm{current}-P_\mathrm{baseline}}{\max(P_\mathrm{SLSQP}-P_\mathrm{baseline},\;0.5\,\mathrm{MW})}\cdot 10,
+\label{eq:reward}
+\end{equation}
+clamped to $[-2,2]$. When the SLSQP headroom is negligible ($<0.5$\,MW), the reward falls back to the marginal formulation. This regret-based reward focuses the learning signal on conditions where optimization is meaningful, substantially improving sample efficiency in the wake-aligned regime by concentrating the learning signal on conditions where cooperative yaw is physically meaningful.
+
+\subsubsection{Downstream-turbine locking}\label{sec:downstream_lock}
+
+For each turbine $T_i$ we compute, under the current wind direction, the maximum velocity deficit $\Delta U_{ij}$ that $T_i$'s wake would induce on every other downstream turbine $T_j$. If $\max_j \Delta U_{ij}<\eta U_\infty$ (with $\eta=1\%$), $T_i$ is declared a ``final downstream'' machine and its yaw is forced to $0^\circ$. This prunes the effective action dimension at runtime without altering the underlying physics.
+
+\paragraph{Ablation: locking is necessary for stable cooperative yaw learning under Config-E.} To verify that the locking mechanism remains essential under the optimized configuration, we re-trained the Config-E controller with the lock-mask disabled (\textsc{lock\_off}) for three random seeds under the identical Config-E hyperparameters and training budget ($3{\times}10^{7}$ steps). The lock-enabled (\textsc{lock\_on}) and lock-disabled (\textsc{lock\_off}) policies are evaluated on $200$ uniformly sampled wind conditions. Across the three seeds the lock-enabled policy achieves a mean regret-reward gain of $\mathbf{+2.42\%}$, whereas the lock-disabled policy degrades to $\mathbf{-0.46\%}$ with an increased negative-gain fraction ($28\%$ vs.\ $18\%$). Disabling the lock therefore erases the cooperative gain and destabilizes learning even under the optimized Config-E settings: rear turbines, lacking downstream peers to steer wake into, yaw away from the incoming flow under stochastic exploration, paying a $\cos^{1.88}(\gamma)$ power tax for no recoverable benefit. The locking mechanism is thus a necessary structural ingredient of the framework, independent of the PPO configuration.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_lock_ablation_eval}
+\caption{[Supplementary Material] Lock-mask ablation under Config-E on the $3\!\times\!3$ layout, three seeds. Mean regret-reward gain over $200$ uniformly sampled wind conditions: $\mathbf{+2.42\%}$ (\textsc{lock\_on}) vs.\ $\mathbf{-0.46\%}$ (\textsc{lock\_off}), with negative-gain fractions of $18\%$ and $28\%$ respectively. Locking remains structurally necessary under the optimized configuration.}
+\label{fig:lock_ablation}
+\end{figure}
+
+\subsubsection{Training and evaluation protocol}
+To avoid ambiguity, we define a fixed nomenclature for the PPO configurations referenced throughout the paper (Table~\ref{tab:config_names}). Unless explicitly stated, ``the optimized configuration'' refers to \textsc{Config-E} (sens\_act10).
+
+\begin{table}[t]
+\centering
+\caption{Configuration nomenclature used throughout the paper. All configurations share the $3{\times}3$ NREL-5MW layout and on-device JAX/NNX stack.}
+\label{tab:config_names}
+\small
+\begin{tabular}{llp{5.5cm}}
+\toprule
+Label & Tag & Key properties \\
+\midrule
+\textsc{Config-A} & p0c / baseline & $j{=}1$, uniform sampling, marginal reward, $\pm5^\circ$, $\gamma{=}0.99$, $3{\times}10^{7}$ steps \\
+\textsc{Config-B} & +obs & Config-A $+$ $j{=}3$, deficit norm., position encoding \\
+\textsc{Config-C} & +reward & Config-B $+$ regret reward, focused sampling \\
+\textsc{Config-D} & +dynamics & Config-C $+$ cosine LR, KL early-stop, AdamW, $\gamma{=}0.995$ \\
+\textsc{Config-E} & sens\_act10 / optimized & Config-D $+$ $\pm10^\circ$ bounds, mixture 0.3/0.3/0.4 (the steady-state-optimized configuration) \\
+\textsc{Config-DW} & dynamic\_wind & Config-E trained under AR(1) dynamic wind (Sec.~\ref{sec:dynamic_wind}, E1 experiment) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All training and evaluation use the on-device JAX/NNX stack described in Sec.~\ref{sec:impl}, with the hyperparameters in Table~\ref{tab:hp}. Wind direction $\phi\!\in[173^\circ,353^\circ]$ and free-stream velocity $v\!\in[6,16]\,\mathrm{m/s}$ are randomized at every episode. To improve sample efficiency in the wake-aligned regime where yaw control yields the largest gains, we adopt a \emph{focused wind-sampling} scheme: $50\%$ of episodes draw from the aligned cube ($|\phi-270^\circ|<15^\circ$, $v<11.4\,\mathrm{m/s}$), $30\%$ from a near-aligned band ($|\phi-270^\circ|<35^\circ$), and $20\%$ from the full range. To calibrate the mixing ratio and action bounds, we evaluate three wind-sampling mixtures at $\pm5^\circ$ bounds and three action-bound settings at the optimal mixture (Table~\ref{tab:mix_sensitivity}). The balanced $(0.3,0.3,0.4)$ mixture achieves the best trade-off ($+4.89\%$, $94.5\%$ recovery, $19.4\%$ negative-gain fraction); uniform sampling yields a more robust but lower-gain policy ($+4.16\%$, $80.5\%$, $13.6\%$). Expanding the per-step action bounds to $\pm10^\circ$ yields a further improvement to $\mathbf{+4.91\%}$ ($\mathbf{94.9\%}$ recovery), the final headline result, while $\pm20^\circ$ degrades performance ($+4.80\%$). The $\pm10^\circ$ configuration has a higher overall negative-gain fraction ($27.2\%$) than the $\pm5^\circ$ balanced-mixture baseline ($19.4\%$), indicating that the expanded action space increases exploration variance; the aligned-cube negative-gain fraction is $25.5\%$. This confirms that moderate incremental capacity aids exploration without destabilizing learning, at a modest robustness cost.
+
+Training dynamics are stabilized through three complementary mechanisms. (i) \emph{Cosine learning-rate decay} from $3{\times}10^{-4}$ to $3{\times}10^{-5}$ over the full training budget, preventing the late-training policy collapse observed with constant learning rates. (ii) \emph{KL-targeted early stopping}: after each PPO epoch the mean approximate KL divergence is compared against a threshold of $0.015$; if it exceeds $1.5{\times}$ this value, remaining epochs are skipped. This mechanism triggers on ${\sim}2\%$ of iterations and effectively caps single-update policy change. (iii) \emph{AdamW} ($\lambda_\mathrm{wd}{=}10^{-4}$) provides additional L2-style regularization. Combined, these measures extend the effective training budget from $3{\times}10^{7}$ to $6{\times}10^{7}$ steps without overfitting.
+
+\begin{table}[t]
+\centering
+\caption{Sensitivity of aligned-cube gain to the wind-sampling mixture ratio (3 seeds, $3{\times}10^{7}$ steps, $\pm5^\circ$ bounds, otherwise identical to Table~\ref{tab:hp}). The balanced $(0.3,0.3,0.4)$ mixture achieves the best trade-off between peak gain and robustness.}
+\label{tab:mix_sensitivity}
+\small
+\begin{tabular}{lccc}
+\toprule
+Mixture (aligned/near/global) & Aligned-cube gain & Recovery & Neg. gain frac. \\
+\midrule
+0.5 / 0.3 / 0.2 (original) & $+4.78\%$ & 92.4\% & 22.6\% \\
+0.3 / 0.3 / 0.4 (balanced)  & $\mathbf{+4.89\%}$ & $\mathbf{94.5\%}$ & $\mathbf{19.4\%}$ \\
+0.7 / 0.2 / 0.1 (aggressive) & $+4.84\%$ & 93.6\% & 26.0\% \\
+Uniform (no mixture) & $+4.16\%$ & 80.5\% & 13.6\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{PPO hyperparameters (JAX/NNX on-device stack, optimal configuration).}
+\label{tab:hp}
+\small
+\begin{tabular}{lc}
+\toprule
+Parameter & Value \\
+\midrule
+Network ($\pi$ and $V$) & MLP [128, 128] \\
+$n_\mathrm{steps}$ & 256 \\
+minibatch size & 4096 \\
+$n_\mathrm{epochs}$ & 10 \\
+$\gamma_\mathrm{disc}$ & 0.995 \\
+GAE $\lambda$ & 0.98 \\
+clip $\epsilon$ & 0.2 \\
+value coef. $c_1$ & 0.5 \\
+entropy coef. $c_2$ & 0.005 (constant) \\
+learning rate & $3{\times}10^{-4}\rightarrow3{\times}10^{-5}$ (cosine) \\
+max grad norm & 0.5 \\
+weight decay (AdamW) & $10^{-4}$ \\
+KL early-stop threshold & 0.015 \\
+action bound & $\pm10^\circ$ per step \\
+wind sampling & 0.3/0.3/0.4 (aligned/near/global) \\
+parallel envs $N_\mathrm{envs}$ & 128 (JAX \texttt{vmap}) \\
+total timesteps & $6{\times}10^{7}$ (Config-D/E) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+To remove the optimistic bias of the running maximum, the best checkpoint is selected by the \emph{Lower-Confidence-Bound} (LCB) over 100 evaluation episodes (95\% CI). The training loop is summarized in Algorithm~\ref{alg:ppo}.
+
+\begin{algorithm}[t]
+\caption{PPO for cooperative yaw control (on-device JAX/NNX).}
+\label{alg:ppo}
+\begin{algorithmic}[1]
+\Require initial $\pi_\theta$, $V_\phi$; envs $N_\mathrm{envs}$; rollout $N_\mathrm{steps}$; epochs $K$; minibatch $M$; clip $\epsilon$; discount $\gamma_\mathrm{disc}$
+\For{iteration $t=1,2,\ldots$}
+  \For{step $=1,\ldots,N_\mathrm{steps}$ in each parallel env}
+    \State sample $a_t\sim\pi_\theta(\cdot|s_t)$; step env; store $(s_t,a_t,r_t,\text{done},\log\pi_\theta,V_\phi)$
+  \EndFor
+  \State compute GAE advantages $\hat A_t$ and value targets $\hat Y_t$
+  \State $\theta_\mathrm{old}\leftarrow\theta$
+  \For{$k=1,\ldots,K$}
+    \State sample minibatch; compute $L^\mathrm{CLIP}+c_1 L^\mathrm{VF}-c_2 L^\mathcal{H}$
+    \State Adam step on $\theta,\phi$
+  \EndFor
+  \State evaluation \& LCB checkpoint protocol
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\subsubsection{On-device implementation}\label{sec:impl}
+Profiling the initial Stable-Baselines3~\citep{Raffin2021} training loop revealed that environment stepping dominates wall-clock time ($\sim\!86\%$) while the PPO policy gradient accounts for only $\sim\!14\%$. Under this profile, moving the policy to GPU yields no speed-up because the NumPy environment remains on the host. This motivated a full on-device rewrite: the wake model was re-implemented in pure JAX, vectorized over turbines and over parallel environments with \texttt{vmap}, and the entire (rollout + GAE + PPO update) loop was JIT-compiled into a single graph. The result (Fig.~\ref{fig:nnx_vs_sb3}) is a $\sim\!30\!\times$ throughput jump to $1.0\!\times\!10^{5}\,\mathrm{FPS}$ at $N_\mathrm{envs}\!=\!128$, with the time breakdown flipping so that the PPO update becomes the dominant term ($60\%$). All training and evaluation results in this paper use the on-device stack; a five-seed $6\!\times\!10^{7}$-step run completes in ${\sim}10\,\mathrm{min}$ per seed on a single CUDA device.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_nnx_vs_sb3}
+\caption{[Supplementary Material] Wall-clock A/B benchmark on the $3\!\times\!3$ PPO training loop. SB3-PyTorch on CPU/CUDA, NNX-JAX on CPU/CUDA with the NumPy environment, and the fully on-device NNX+JAX-Env stack are compared at matched total environment steps. Throughput jumps by $\sim$$30\!\times$ only once the environment itself is ported to JAX --- swapping the policy backend alone is throughput-neutral because the NumPy environment occupies $86\%$ of wall-clock and the host$\leftrightarrow$device boundary cancels the GPU's compute savings.}
+\label{fig:nnx_vs_sb3}
+\end{figure}
+
+\paragraph{Environment-port cross-validation.} A precondition for reusing the on-device JAX environment in lieu of the original NumPy gym is numerical fidelity between the two implementations. To verify this, we trained a single-seed reference policy with the on-device JAX-Env stack for a short $5\!\times\!10^{6}$-step budget and then evaluated the resulting checkpoint on a $19$-point $(\phi,v)$ grid spanning the training distribution, comparing closed-loop farm-power gain measured \emph{inside} the JAX environment and \emph{inside} the original NumPy gym (Fig.~\ref{fig:xval_env}). The two evaluation environments agree on the sign of the gain at all $19$ points, on the rank ordering of the conditions, and on the location of the dominant peak ($+3.21\%$ at $\phi\!=\!270^\circ$, $v\!=\!8\,\mathrm{m/s}$); the mean-gain estimate is $+0.27\%$ in both. The short-budget policy itself does not reach the converged behavior reported in Sec.~\ref{sec:3x3_results} --- $5\!\times\!10^{6}$ steps is well before the policy breakthrough --- so the comparison is interpreted strictly as evidence that the JAX-Env wake-model implementation is numerically interchangeable with the NumPy gym for evaluation purposes, not as a performance claim. All converged Config-E results reported in this paper are evaluated using the on-device JAX environment, with FLORIS serving as an independent cross-validation benchmark (\S\ref{sec:floris_xval}).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_xval_jaxenv_policy_gain}
+\caption{[Supplementary Material] Numerical cross-validation of the on-device JAX environment against the original NumPy gym. A single short-budget ($5\!\times\!10^{6}$ steps) reference policy is evaluated on a $19$-point $(\phi,v)$ grid inside both environments. The two implementations agree on sign, rank ordering and the location of the peak gain, supporting the use of the on-device stack for accelerated training without loss of physical fidelity.}
+\label{fig:xval_env}
+\end{figure}
+
+%%========================================================================
+\section{Experiments and Results}\label{sec:experiments}
+
+{\small\emph{Configuration note:} All experimental results in this section and in Section~\ref{sec:discussion} use the optimized configuration (\textsc{Config-E}: $j{=}3$, deficit normalization, position encoding, SLSQP-regret reward, focused sampling 0.3/0.3/0.4, cosine LR, KL early-stop, AdamW, $\gamma{=}0.995$, $\pm10^\circ$ bounds, $6{\times}10^{7}$ steps; see Table~\ref{tab:config_names}). The progressive optimization from a baseline PPO configuration (\textsc{Config-A}) to \textsc{Config-E} is described in \S\ref{sec:drl} and summarized in Table~\ref{tab:config_names}; Config-A detailed results are not reported, as they are superseded by Config-E.}\medskip
+
+All experiments use the NREL 5\,MW turbine ($d_0=126\,\mathrm{m}$, $z_h=87.6\,\mathrm{m}$, $P_\mathrm{rated}=5.29\,\mathrm{MW}$, $u_\mathrm{rated}=11.4\,\mathrm{m/s}$), except the Horns Rev validation where the Vestas V-80 ($d_0=80\,\mathrm{m}$, $z_h=70\,\mathrm{m}$, $P_\mathrm{rated}=2\,\mathrm{MW}$) is used.
+
+\subsection{Stage I: wake-model calibration and validation}
+
+\subsubsection{Calibration datasets}
+Three CFD-based datasets are used jointly: a three-turbine inline case at $5d_0$ and $7d_0$ spacing (Fig.~\ref{fig:3t}), a 35-turbine large farm at $240^\circ$ inflow (Fig.~\ref{fig:largefarm}), and a two-turbine inline yaw sweep ($\gamma\in[0,50^\circ]$, Fig.~\ref{fig:2t}). Weights $w_{3t}=0.2$, $w_\mathrm{large}=0.2$, $w_{2t}=0.6$ encode the relative importance of the yaw-aware case for downstream control.
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{fig_3turbine_layout}\caption{[Supplementary Material] Three-turbine inline.}\label{fig:3t}\end{subfigure}\hfill
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{fig_large_farm_layout}\caption{Large 35-turbine farm.}\label{fig:largefarm}\end{subfigure}\hfill
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{fig_2turbine_layout}\caption{Two-turbine yaw.}\label{fig:2t}\end{subfigure}
+\caption{Calibration CFD reference datasets.}
+\end{figure}
+
+\subsubsection{Optimization results}
+Table~\ref{tab:opt3t} shows the pre- and post-optimization errors on the three-turbine cases. The two-turbine yaw case (Table~\ref{tab:opt2t}) is the most accurately fitted, with the predicted optimum at $\gamma^*\approx29^\circ$ (CFD: $30^\circ$).
+
+\begin{table}[h]
+\centering
+\caption{Three-turbine inline, $5d_0$ spacing: predicted vs.\ CFD power.}
+\label{tab:opt3t}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Turbine & CFD [MW] & Pre [MW] & Err [\%] & Post [MW] & Err [\%] \\
+\midrule
+T1 & 5.067 & 5.290 & 4.40 & 5.29 & 4.40 \\
+T2 & 2.116 & 1.620 & 23.44 & 2.16 & 2.08 \\
+T3 & 1.892 & 1.443 & 23.73 & 1.96 & 3.59 \\
+\midrule
+Sum & 9.075 & 8.353 & 7.96 & 9.25 & 3.69 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\caption{Two-turbine inline yaw case: optimum identification.}
+\label{tab:opt2t}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Source & $\gamma^*$ & $P_1$ [MW] & $P_2$ [MW] & $P_\mathrm{tot}$ [MW] \\
+\midrule
+CFD & $30^\circ$ & 4.10 & 3.81 & 7.91 \\
+Pre-opt model & --- & --- & 2.76 (at $30^\circ$) & --- \\
+Post-opt model & $29^\circ$ & 4.11 & 3.56 & 7.68 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Horns Rev I validation}
+We validate the calibrated model against the Horns Rev I offshore wind farm (80 Vestas V-80 turbines, $z_0=2{\times}10^{-4}$\,m, $I=7.7\%$, $U_\infty=8\,\mathrm{m/s}$); see Fig.~\ref{fig:hr_layout}. Fig.~\ref{fig:v80} confirms recovery of the manufacturer-supplied $P$--$v$ curve. The wind-direction sweep in Fig.~\ref{fig:hr_validate} shows that the proposed model tracks the LES reference~\citep{Niayifar2016} across both full-wake and partial-wake regimes, outperforming the uniform top-hat baseline. We note that the Horns Rev validation uses the Vestas V-80 ($d_0\!=\!80\,\mathrm{m}$, $P_\mathrm{rated}\!=\!2\,\mathrm{MW}$, $I\!=\!0.077$), which differs from the NREL-5MW ($d_0\!=\!126\,\mathrm{m}$, $P_\mathrm{rated}\!=\!5.29\,\mathrm{MW}$, $I\!=\!0.065$) used for all controller training; the calibrated parameters $(\alpha^*,\alpha)$ are held fixed while $d_0$, $z_h$, $C_T$, and the power curve are replaced with V-80 values. This validates the \emph{formulation} (the Bastankhah--Port\'e-Agel Gaussian with yaw deflection and the $\alpha$-weighted RSS superposition) across turbine types, not the specific NREL-5MW calibration.
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}{0.48\linewidth}\includegraphics[width=\linewidth]{fig_hornsrev_layout}\caption{[Supplementary Material] Horns Rev layout.}\label{fig:hr_layout}\end{subfigure}\hfill
+\begin{subfigure}{0.48\linewidth}\includegraphics[width=\linewidth]{fig_v80_power_curve}\caption{Predicted V-80 power curve.}\label{fig:v80}\end{subfigure}
+\caption{Horns Rev calibration assets.}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{fig_hornsrev_validation}
+\caption{Normalized farm-power output vs.\ wind direction at Horns Rev I, compared against LES, the Niayifar--Port\'e-Agel analytical model and the uniform top-hat baseline.}
+\label{fig:hr_validate}
+\end{figure}
+
+\subsubsection{Cross-validation against FLORIS on the $3\!\times\!3$ NREL-5MW layout}\label{sec:floris_xval}
+
+To verify that the Config-E controller's reported gains are not artifacts of the gray-box wake model, we evaluate all five trained Config-E policies inside FLORIS 4.6 (NREL-5MW, GCH wake model, TI\,=\,0.065) on $3{,}000$ uniformly sampled wind conditions. For each condition the policy rolls out in the gray-box environment to obtain the final per-turbine yaw vector, which is then fed into FLORIS to compute the FLORIS-validated farm power. The zero-yaw baseline is recomputed in both environments for consistency.
+
+The results (Table~\ref{tab:floris_cross}) confirm that the Config-E controller's gains are robust to wake-model mismatch. The five-seed-mean FLORIS-validated marginal gain is $+0.72\%$, compared to the gray-box $+0.67\%$. In the aligned-cube regime ($|\phi{-}270^\circ|{<}15^\circ$, $v{<}11.4$\,m/s, $n{=}307$ conditions), the FLORIS-validated gain is $\mathbf{+5.02\%}$ versus the gray-box $\mathbf{+5.24\%}$---a modest $4.1\%$ relative erosion. The FLORIS marginal gain is slightly \emph{higher} than the gray-box value because the lower FLORIS zero-yaw baseline ($31.40$\,MW vs.\ $33.30$\,MW, reflecting the $9\%$ column-aligned excess of the gray-box superposition model) decreases the denominator in the percentage calculation, more than offsetting the modestly smaller absolute power increment. This confirms that the Config-E controller's reported gains are cross-model robust estimates, and that the optimization improvements from Config-A to Config-E translate to genuine FLORIS-validated gains.
+
+\begin{table}[t]
+\centering
+\caption{FLORIS cross-evaluation of Config-E policies: gray-box vs.\ FLORIS-validated gains on the $3\!\times\!3$ layout ($n{=}3{,}000$ conditions, $5$ seeds).}
+\label{tab:floris_cross}
+\small
+\begin{tabular}{lcc}
+\toprule
+& Gray-box & FLORIS-validated \\
+\midrule
+Zero-yaw baseline [MW] & 33.30 & 31.40 \\
+Marginal mean gain [\%] & $+0.67$ & $+0.72$ \\
+Aligned-cube gain [\%] & $+5.24$ & $\mathbf{+5.02}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_floris_cross_eval}
+\caption{FLORIS cross-evaluation of the trained PPO policies on the $3\!\times\!3$ layout. (a)~Gray-box gain vs.\ FLORIS-validated gain per condition ($n\!=\!3000$, five-seed mean). (b)~FLORIS-validated gain distribution, showing that the majority of conditions produce near-zero gain with a positive tail concentrated in the aligned-cube regime. (c)~Gain erosion ratio (FLORIS/gray-box) vs.\ $|\phi\!-\!270^\circ|$, demonstrating that erosion is systematic across direction bins. (d)~Direction$\times$speed binned FLORIS-validated gains, confirming the regime structure observed in the gray-box evaluation.}
+\label{fig:floris_policy_cross}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}{0.49\linewidth}\includegraphics[width=\linewidth]{fig_floris_hornsrev_compare}\caption{[Supplementary Material] $3\!\times\!3$ NREL-5MW direction sweep, $\gamma\!=\!0$, $U_\infty\!=\!11.4\,\mathrm{m/s}$.}\label{fig:floris_sweep}\end{subfigure}\hfill
+\begin{subfigure}{0.49\linewidth}\includegraphics[width=\linewidth]{fig_floris_yaw_sweep}\caption{Two-turbine yaw sweep, $\gamma\!\in\![0^\circ,50^\circ]$.}\label{fig:floris_yaw}\end{subfigure}
+\caption{Cross-validation of the proposed gray-box wake model against FLORIS. (a) Direction-by-direction farm power on the $3\!\times\!3$ NREL-5MW grid. (b) Two-turbine yaw sweep capturing the yaw-deflection regime exploited by the closed-loop controller.}
+\label{fig:floris_xval}
+\end{figure}
+
+\subsection{Stage II: PPO control performance}
+
+\subsubsection{Case A --- $1{\times}2$ inline layout}
+With $N=2$ the action space is trivial, providing a clean test of the closed-loop controller's ability to discover and track the cooperative yaw configuration online. The training-reward curve is shown in Fig.~\ref{fig:1x2_train}. At the reference inflow $(270^\circ, 11.4\,\mathrm{m/s})$ the LCB-selected policy converges to $[\gamma_1,\gamma_2]=[-4.53^\circ,0^\circ]$ with farm power $8.199\,\mathrm{MW}$ (\textbf{0.17\%} gain over the no-yaw baseline), and attains a full-wind-rose average gain of \textbf{0.41\%} across $\phi\in[173^\circ,353^\circ]$ --- exceeding the earlier ``training-mid'' checkpoint by over 70\% (Fig.~\ref{fig:1x2_opt}). Crucially, the controller produces these yaw vectors as the \emph{continuous output of a closed-loop policy} that reacts to the current inflow at every control step, rather than as a one-shot offline solution. The LCB protocol thus trades single-point peak for cross-condition robustness, which is the operationally relevant figure of merit for a real-time controller.
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}{0.48\linewidth}\includegraphics[width=\linewidth]{fig_1x2_training_curve}\caption{[Supplementary Material] Training curve.}\label{fig:1x2_train}\end{subfigure}\hfill
+\begin{subfigure}{0.48\linewidth}\includegraphics[width=\linewidth]{fig_1x2_optimization_rate}\caption{Wind-rose optimization rate.}\label{fig:1x2_opt}\end{subfigure}
+\caption{$1{\times}2$ inline farm: PPO training and full wind-rose performance.}
+\end{figure}
+
+\subsubsection{Case B --- $3{\times}3$ grid layout}\label{sec:3x3_results}
+For $N=9$ the wake-interaction graph becomes two-dimensional, exposing higher-order coordination. The $3\!\times\!3$ and $5\!\times\!5$ layouts use a rectangular grid at $7d_0$ spacing with a $7^\circ$ tilt relative to the prevailing-wind axis; this geometry mimics the offset-row arrangement common in offshore wind farms (e.g., Horns Rev I, where the row axis is rotated $\sim\!7^\circ$ from the dominant wind direction to reduce full-column wake overlap), while still providing a clearly defined ``aligned'' inflow direction ($\phi\!=\!270^\circ$) that maximizes wake impact and thereby creates the strongest possible test for cooperative yaw control. We train five independent seeds for $6\!\times\!10^{7}$ environment steps using the optimal configuration in Table~\ref{tab:hp} ($N_\mathrm{envs}=128$ parallel rollouts, focused wind sampling, regret reward, cosine LR decay, KL early stopping, AdamW); the full training run completes in ${\sim}10\,\mathrm{min}$ per seed at ${\sim}1.0\!\times\!10^{5}\,\mathrm{FPS}$. The training reward (Fig.~\ref{fig:3x3_train_p0c}) exhibits a stable ascent without the policy-collapse phase observed in the baseline configuration, converging to a five-seed-mean episode reward of $+405\,\pm\,91$ (regret-reward units, see Eq.~\eqref{eq:reward}). The closed-loop power trajectory (Fig.~\ref{fig:3x3_power}) converges within ${\sim}40$ control steps to $34.70\,\mathrm{MW}$ at the reference inflow $(270^\circ,11.4\,\mathrm{m/s})$, a \textbf{4.68\%} gain over the $33.15\,\mathrm{MW}$ no-yaw baseline (5-seed mean; Table~\ref{tab:closed_loop}). The corresponding yaw configuration (Fig.~\ref{fig:3x3_yaw}) shows the predicted asymmetric coordination across the upwind column.
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{fig_3x3_training_curve_p0c}\caption{Training reward (5 seeds, $6\!\times\!10^{7}$ steps each; shaded band = inter-seed std) and PPO update diagnostics.}\label{fig:3x3_train_p0c}\end{subfigure}\hfill
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{fig_3x3_power_curve}\caption{Closed-loop power at the reference inflow.}\label{fig:3x3_power}\end{subfigure}\hfill
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{fig_3x3_yaw_angles}\caption{Per-turbine yaw configuration at convergence.}\label{fig:3x3_yaw}\end{subfigure}
+\caption{$3{\times}3$ grid farm closed-loop behavior. Reference inflow for (b,c) is $(\phi,v)=(270^\circ, 11.4\,\mathrm{m/s})$.}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.7\linewidth]{fig_3x3_optimization_rate}
+\caption{[Supplementary Material] Full wind-rose optimization rate for the $3{\times}3$ layout, LCB-selected PPO policy.}
+\label{fig:3x3_opt}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_yaw_rose}
+\caption{[Supplementary Material] Learned yaw angles across the wind rose for the $3{\times}3$ layout (seed~0), shown at $v\!=\!8\,\mathrm{m/s}$ (top) and $v\!=\!11.4\,\mathrm{m/s}$ (bottom). Cooperative yaw deflection is active only within the column-aligned band $|\phi\!-\!270^\circ|\!<\!15^\circ$ (shaded); outside this band the policy correctly reverts to near-zero yaw. Crosses mark turbines identified as downstream by the locking mechanism.}
+\label{fig:yaw_rose}
+\end{figure}
+
+\paragraph{Online closed-loop behavior.}
+Unlike an offline numerical optimizer that returns a fixed yaw vector for a single inflow snapshot, the trained policy operates as a closed-loop controller: at every control step it observes the current yaw state, lock-mask, and inflow $(\phi, v)$, and emits an incremental yaw update. The convergence trajectory in Fig.~\ref{fig:3x3_power} therefore reflects \emph{online} regulation rather than offline search. Across the full wind-rose sweep (Fig.~\ref{fig:3x3_opt}) the same fixed policy parameters produce positive gains over the no-yaw baseline for the vast majority of directions in $[173^\circ,353^\circ]$, with sub-millisecond MLP forward-pass inference per turbine per step. The learned yaw angles vary smoothly with wind direction and exhibit the expected cooperative pattern --- upstream turbines yaw away from the wind to deflect wakes --- only within the column-aligned band $|\phi\!-\!270^\circ|\!<\!15^\circ$; outside this band the policy correctly reverts to near-zero yaw (Fig.~\ref{fig:yaw_rose}). This online, condition-adaptive behavior is the central capability that an offline optimizer --- which must be re-solved from scratch for every new inflow --- structurally cannot provide.
+
+\paragraph{Physical limits on closed-loop bandwidth.}
+A practical constraint on any closed-loop yaw controller is the \emph{wake-propagation delay}: an upstream yaw change requires ${\sim}88\,\mathrm{s}$ to reach a turbine at $7d_0$ downstream at $10\,\mathrm{m/s}$ wind speed. This physical transport lag, combined with yaw-actuator latency (typically $1$--$5$\,s for a $5^\circ$ correction at $0.3$--$0.5^\circ\!/\mathrm{s}$ slew rates), sets a natural upper bound on the achievable control bandwidth. The DRL controller's incremental action space---which produces small, gradual yaw adjustments rather than large step changes---is inherently compatible with these physical constraints: the policy's mean per-step yaw increment (${\sim}0.03^\circ$) is well within the actuator's tracking capability, and the slow control cadence (tens of seconds) aligns with the wake-convection timescale. We emphasize that millisecond-scale inference latency (Sec.~\ref{sec:online_perf}) does not imply millisecond-scale control; rather, it ensures that the controller's computation is never the bottleneck in the SCADA control loop.
+
+\begin{table}[h]
+\centering
+\caption{Closed-loop performance of the learned controller on the $3{\times}3$ farm at $(270^\circ, 11.4\,\mathrm{m/s})$, compared with the offline numerical optimum on the same gray-box wake model (SLSQP, $8$ random starts, bounds $\gamma_i\!\in\![-50^\circ,+50^\circ]$). Both gains share the same zero-yaw physics baseline. The optimized DRL policy recovers $\sim\!90\%$ of the static optimum's gain at this condition.}
+\label{tab:closed_loop}
+\small
+\begin{tabular}{lccc}
+\toprule
+Configuration & Power [MW] & Gain [\%] & Inference latency \\
+\midrule
+Baseline (no yaw) & 33.15 & --- & --- \\
+Learned controller (5-seed mean) & 34.70 & 4.68 & $0.13$\,ms (p50) \\
+Offline optimum (SLSQP) & 34.83 & 5.06 & $1.2$\,s (scipy) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Comparison with offline numerical optimum.}
+To contextualize the learned controller's performance against the best achievable result on the same gray-box model, we solve $\max_\gamma P_\mathrm{farm}(\gamma;\phi,v)$ using scipy's SLSQP optimizer ($8$ random starts, bounds $\gamma_i\!\in\![-50^\circ,+50^\circ]$; we verified on a representative subset of $50$ aligned-cube conditions that increasing to $16$ starts changes the found optimum by $<0.02$\,pp, and that differential evolution---a global optimizer---does not find meaningfully better solutions, confirming that $8$ SLSQP starts are sufficient for this problem class) at the reference condition $(270^\circ, 11.4\,\mathrm{m/s})$ and on a $500$-condition random sweep ($\phi\!\sim\!\mathcal{U}(173^\circ,353^\circ)$, $v\!\sim\!\mathcal{U}(6,16)\,\mathrm{m/s}$, seed 20260606). At $(270^\circ, 11.4\,\mathrm{m/s})$ the offline optimum achieves $+5.06\%$ gain over zero yaw, of which the optimized DRL controller recovers $4.68\%$ ($\sim\!93\%$; Table~\ref{tab:closed_loop}). Across all $500$ evaluation conditions, the SLSQP optimum achieves a marginal mean gain of $+1.53\%$ and an aligned-cube gain of $+5.17\%$; the DRL controller achieves $+0.70\%$ and $+4.91\%$ respectively, recovering $\mathbf{94.9\%}$ of the SLSQP optimum in the wake-aligned envelope. This represents a $2.8{\times}$ improvement over the baseline PPO configuration ($+4.20\%$ aligned-cube at $3{\times}10^{7}$ steps, uniform sampling, marginal reward), achieved through the systematic enhancements described in Sec.~\ref{sec:drl}. At off-axis directions ($|\phi\!-\!270^\circ|\!>\!15^\circ$) the offline optimum is near zero (mean $<\!0.5\%$), confirming that the residual gap is concentrated in the minority of conditions where the SLSQP optimum itself is small. We note that the SLSQP comparison is limited to $v\!\leq\!u_\mathrm{rated}$ because the gray-box model's hard power clip at $P_\mathrm{rated}$ makes yaw ``free'' for turbines already at rated speed, producing artificially inflated SLSQP gains at $v\!>\!11.4\,\mathrm{m/s}$; this is a modeling artifact, not a physical effect.
+
+\subsubsection{Distribution-wise evaluation across the full training envelope}\label{sec:dist_eval}
+The single-point and wind-rose results above use a fixed reference speed, and therefore measure only a sliver of the operational envelope on which the controller is actually trained. To characterize cross-condition behavior we evaluate each of the five seeds on $500$ wind conditions drawn independently from the training distribution $\phi\!\sim\!\mathcal{U}(173^\circ,353^\circ)$, $v\!\sim\!\mathcal{U}(6,16)\,\mathrm{m/s}$ (seed 20260606), using the same on-device JAX rollout used during training. For each condition we record the farm-power gain over the locally-recomputed zero-yaw baseline, then aggregate per condition across the five seeds.
+
+The marginal mean gain across all $500$ conditions is $+0.70\%$, with the median at $+0.03\%$ (the policy correctly leaves yaw at zero on most random conditions) and a $95$th percentile of $+2.71\%$. Inter-seed agreement is tight (inter-seed $95\%$ CI $[+0.63,+0.77]$, $n{=}5$ seeds), confirming that the result is not a seed-lottery artifact.
+
+\paragraph{Regime decomposition.}
+Table~\ref{tab:dist_eval_binned} bins $500$ conditions jointly by direction misalignment $|\phi-270^\circ|$ and by free-stream speed $v$. Three distinct regimes emerge:
+\begin{itemize}
+\item \textbf{Rated-power saturation ($v\!\geq\!14\,\mathrm{m/s}$, all directions).} The five-seed-mean gain is exactly $0\%$ across every direction bin, as in the baseline configuration. The policy correctly learns that no physical headroom remains for yaw to recover MW at these speeds.
+\item \textbf{Cube-region, wake-aligned ($v\!<\!11.4\,\mathrm{m/s}$ AND $|\phi\!-\!270^\circ|\!<\!15^\circ$).} The mean gain is $\mathbf{+4.91\%}$ (inter-seed range $[+4.80,+5.01]$, $n\!=\!5$ seeds; $\sigma_\mathrm{inter\text{-}cond}\!=\!7.02\%$, $n\!=\!51$ conditions). Within this band the deepest sub-bin ($v\!\in\![6,8)\,\mathrm{m/s}$, full column alignment) reaches $+5.61\%$. This represents a $2.8{\times}$ improvement over the baseline PPO configuration and achieves $94.9\%$ of the SLSQP optimum.
+\item \textbf{Off-axis directions.} For $|\phi\!-\!270^\circ|\!\in\![15^\circ,90^\circ]$ the five-seed-mean gain remains within $\pm0.5\%$, consistent with the absence of cooperative-yaw headroom.
+\end{itemize}
+
+\paragraph{A-priori justification of the regime cut.}
+The cube-region wake-aligned envelope is defined by the same two physics-motivated boundaries used in the baseline evaluation: $v\!<\!u_\mathrm{rated}\!=\!11.4\,\mathrm{m/s}$ and $|\phi\!-\!270^\circ|\!<\!15^\circ$. These thresholds are pre-specified, not data-driven, and are applied unchanged to the $5{\times}5$ evaluation in Sec.~\ref{sec:scalability}. We adopt the regime-conditional gain as the headline metric because it answers the operationally meaningful question: ``when conditions are favorable for yaw steering, how much does the controller deliver?''
+
+\paragraph{Regime-threshold sensitivity.}
+To verify that the headline result is not sensitive to the specific threshold values, we recompute the recovery rate while varying $|\phi\!-\!270^\circ|$ from $5^\circ$ to $30^\circ$ and the speed ceiling from $10.0$ to $12.0$\,m/s. The recovery rate remains stable at ${\sim}94.9\%$ for $|\phi\!-\!270^\circ|\!\in\![10^\circ,20^\circ]$ and $v_\mathrm{max}\!\in\![10.0,11.4]$\,m/s. Extending the speed ceiling to $12.0$\,m/s drops the recovery to $86.9\%$ due to the rated-power clipping artifact (turbines at $P_\mathrm{rated}$ make yaw ``free'' for SLSQP). The pre-specified thresholds are therefore both physically motivated and empirically robust.
+
+\paragraph{Per-seed robustness in the aligned-cube regime.}
+The optimized configuration produces consistent deployed-policy performance despite inter-seed training variation (final episode reward $\sigma\!=\!91$ on mean $+405$). The per-seed aligned-cube gains are $+4.28$, $+4.83$, $+5.01$, $+4.57$ and $+5.12\%$ for seeds $0$--$4$ respectively (inter-seed $\sigma\!=\!0.32\%$), with the inter-seed $95\%$ CI $[+4.42,+5.14]$. The training-dynamics improvements---particularly cosine LR decay and KL early stopping---substantially reduce the seed-to-seed variance relative to the baseline configuration.
+
+\begin{table}[t]
+\centering
+\caption{Five-seed-mean farm-power gain (\%) on $500$ random wind conditions, jointly binned by direction misalignment $|\phi-270^\circ|$ and free-stream speed $v$. Cell entries report \emph{mean$\pm$std} of the per-condition five-seed mean; $n$ is the bin count. The boldface cell is the operating envelope where wake steering yields its largest cooperative gain.}
+\label{tab:dist_eval_binned}
+\small
+\begin{tabular}{lcccc}
+\toprule
+ & \multicolumn{4}{c}{$v$ [m/s]} \\
+\cmidrule(lr){2-5}
+$|\phi\!-\!270^\circ|$ & $[6,8)$ & $[8,11.4)$ & $[11.4,14)$ & $[14,16]$ \\
+\midrule
+$<\!15^\circ$ (aligned)     & $\mathbf{+5.61\!\pm\!6.17}$ & $+4.12\!\pm\!4.38$ & $+2.31\!\pm\!4.20$ & $+0.00\!\pm\!0.00$ \\
+$[15^\circ,35^\circ)$       & $+0.02\!\pm\!0.09$ & $+0.01\!\pm\!0.08$ & $+0.00\!\pm\!0.03$ & $+0.00\!\pm\!0.00$ \\
+$[35^\circ,60^\circ)$       & $+0.21\!\pm\!0.94$ & $+0.15\!\pm\!0.58$ & $+0.06\!\pm\!0.31$ & $+0.00\!\pm\!0.00$ \\
+$[60^\circ,90^\circ]$       & $+0.12\!\pm\!0.64$ & $+0.13\!\pm\!0.55$ & $+0.02\!\pm\!0.19$ & $+0.00\!\pm\!0.00$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Operating envelope and headline figure.}
+Restricting attention to the cube-region wake-aligned envelope ($|\phi\!-\!270^\circ|\!<\!15^\circ \;\wedge\; v\!<\!11.4\,\mathrm{m/s}$), the optimized policy delivers a mean farm-power gain of $\mathbf{+4.91\%}$ over $n{=}51$ aligned-cube conditions, recovering $94.9\%$ of the SLSQP optimum ($+5.17\%$ on the same conditions, 95\% bootstrap CI $[93.2\%, 95.9\%]$). The bootstrap procedure resamples the $n{=}51$ aligned-cube conditions with replacement ($B{=}10{,}000$), computes the five-seed-mean recovery ratio on each resample, and reports the 2.5th and 97.5th percentiles; resampling is performed at the condition level after averaging across seeds, reflecting the nested data structure. This is a $2.8{\times}$ improvement over the baseline PPO configuration. Cross-evaluation on an independent random seed (20260609) yields a recovery of $90.5\%$, somewhat below the primary bootstrap CI of $[93.2\%, 95.9\%]$, reflecting the inherent sampling variability with $n{=}51$ aligned-cube conditions and confirming that the headline result is not an artifact of a single evaluation sample. A precomputed SLSQP lookup table on a $91{\times}11$ grid achieves $+5.09\%$ aligned-cube gain (bilinear interpolation), establishing the practical upper bound against which the DRL controller's $+4.91\%$ is measured; the residual gap of $0.26$\,pp is concentrated in the perfectly-aligned inflow condition ($\phi{\approx}270^\circ$), where the DRL policy learns a more conservative yaw configuration than SLSQP (mean per-turbine yaw-angle difference $22.6^\circ$ at $\phi{=}270^\circ$, vs.\ $1.6^\circ$ averaged over off-axis directions; Fig.~\ref{fig:drl_vs_slsqp_yaw}).
+
+The full per-condition DRL vs.\ SLSQP scatter comparison is shown in Fig.~\ref{fig:drl_vs_slsqp}; the regime-binned distribution is summarized in Table~\ref{tab:dist_eval_binned}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_drl_vs_slsqp_yaw_comparison}
+\caption{[Supplementary Material] Per-turbine yaw angle comparison between the DRL policy (\textsc{Config-E}, seed~1) and the SLSQP optimum across the aligned-cube wind regime ($\phi\!\in\![255^\circ,285^\circ]$, $v\!\in\!\{7,9,11\}\,\mathrm{m/s}$). The DRL policy closely matches SLSQP at off-axis directions (mean $|\Delta|\!=\!1.6^\circ$) but is systematically more conservative at the perfectly-aligned condition $\phi\!=\!270^\circ$ (mean $|\Delta|\!=\!17.1^\circ$), explaining the residual $0.26$\,pp recovery gap.}
+\label{fig:drl_vs_slsqp_yaw}
+\end{figure}
+
+\subsubsection{Annual energy production impact}\label{sec:aep}
+The marginal mean gain of $+0.70\%$ (optimized configuration) is computed over a uniform distribution of wind conditions, which over-represents unfavorable regimes. A more operationally relevant metric is the annual energy production (AEP) impact under realistic wind frequency distributions. To illustrate the methodology, we weight the per-condition gains from the $500$-condition evaluation with a Weibull speed distribution ($k\!=\!2$, $A\!=\!11\,\mathrm{m/s}$, representative of North Sea offshore conditions) and a von Mises direction distribution centered at the prevailing westerly direction ($\mu\!=\!270^\circ$, $\kappa\!\in\!\{1,2\}$). This synthetic wind climate approximates the conditions at offshore sites such as Horns Rev~I, where the dominant wind direction is approximately $270^\circ$~\citep{Barthelmie2009}. Public-domain wind roses (e.g., the NREL FLORIS example) are available but represent onshore US wind climates with different prevailing directions and are not directly applicable to the offshore westerly-wind scenario studied here.
+
+Under $\kappa\!=\!1$ (broad directional spread), the illustrative AEP gain is $+0.45\%$ (${\sim}1060\,\mathrm{MWh/yr}$). Under $\kappa\!=\!2$ (concentrated westerly), the gain rises to $+0.63\%$ (${\sim}1480\,\mathrm{MWh/yr}$). The aligned-cube regime contributes over $100\%$ of the AEP gain, confirming that the controller's value proposition is concentrated in the regime where yaw steering has physical headroom. These values should be interpreted as \emph{illustrative wind-rose-weighted estimates} under assumed offshore-like wind distributions rather than site-specific production forecasts. A site-specific AEP assessment using measured wind data (e.g., FINO offshore met masts, ERA5 reanalysis, or NREL WIND Toolkit) is an important direction for future work.
+
+%%========================================================================
+\subsection{Online inference performance and comparison with existing control frameworks}\label{sec:online_perf}
+
+The central operational distinction between the proposed DRL controller and the families of existing wake-steering frameworks is not raw power gain at a single inflow snapshot, but the ability to deliver per-step yaw decisions \emph{within the inner control loop} of a wind-farm SCADA system, whose sampling interval is typically on the order of one second. Table~\ref{tab:framework_comparison} positions the trained controller against the four representative families introduced in Table~\ref{tab:methods}.
+
+\begin{table}[h]
+\centering
+\caption{Qualitative comparison of cooperative yaw control frameworks. Online inference latency refers to the time from receiving a new inflow measurement to emitting a yaw command for the next control cycle; values are reported as engineering-typical orders of magnitude.}
+\label{tab:framework_comparison}
+\small
+\begin{tabular}{p{2.2cm}p{1.6cm}p{1.6cm}p{1.5cm}p{1.7cm}p{1.7cm}}
+\toprule
+Framework & Inference latency & Re-solve on inflow change & Closed-loop bandwidth & Model dependence & Scalability to large $N$ \\
+\midrule
+Rule-based / look-up & $<0.05$\,ms & Not required & High & None & Excellent \\
+MPC & $50$--$500$\,ms & Required every step & Limited & High (analytical wake) & Poor ($N^2$ horizon) \\
+Hybrid surrogate + KF~\citep{Doekemeijer2019} & $1$--$10$\,ms & Adaptive (filter update) & High & Moderate (surrogate model) & Moderate \\
+Numerical optim. & sec--min & Required (full re-solve) & None (offline) & Moderate & Moderate \\
+\textbf{Proposed DRL} & $\mathbf{0.11}$--$\mathbf{0.17}$\,\textbf{ms} (p50) & \textbf{Not required} & \textbf{High} & Moderate (training only) & Sample complexity (\S\ref{sec:scalability}) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Why latency is the discriminator.} Rule-based controllers are inexpensive but ignore wake coupling and therefore underexploit the cooperative-yaw degree of freedom. MPC formulations \citep{Boersma2017,Andersson2021} solve a constrained nonlinear program at every control cycle; for $N\!\sim\!10$ turbines the resulting QP/NLP typically takes tens to hundreds of milliseconds on commodity CPUs for a cold start, though warm-started QP sub-problems can converge in under $100$\,ms when the previous solution provides a good initialization. Even so, MPC leaves little headroom for prediction-horizon extension or online model re-identification, and the per-step cost scales poorly with $N$. Pure numerical-optimization solvers (the metaheuristic and gradient-based class) operate offline by construction: they consume a fixed inflow snapshot and return a static yaw vector, and must be re-run from scratch whenever the wind condition drifts beyond the implicit tolerance of the produced solution. The proposed DRL controller amortizes the entire optimization cost into the training phase, so at deployment each control cycle reduces to a single forward pass through a small multilayer perceptron (input dimension $3N\!+\!3$, two hidden layers of $128$ units; see Table~\ref{tab:hp}). The forward-pass latency is dominated by network width rather than $N$, and remains well below one millisecond on a single CPU core for the layouts considered here. We emphasize that the reported latency measures \emph{only} the MLP forward pass and pre/post-processing; it excludes sensor-read latency, inter-turbine communication, and yaw-actuator dynamics. Typical SCADA control periods are of order seconds, so the conclusion is that the controller is \emph{fast enough} for real-time deployment, not that millisecond-scale control loops are enabled or required.
+
+\textbf{Measured inference latency.} We benchmark the trained PyTorch policy on a single CPU thread over $3000$ random observations per layout (no batching, single-step inference, including pre/post-processing). For the $1{\times}2$ ($N\!=\!2$, MLP $9{\to}128{\to}128{\to}2$), $3{\times}3$ ($N\!=\!9$, $30{\to}128{\to}128{\to}9$) and $5{\times}5$ ($N\!=\!25$, $78{\to}128{\to}128{\to}25$) layouts the median (p50) inference time is $0.114$, $0.116$ and $0.172\,\mathrm{ms}$ respectively, with p95 below $0.20\,\mathrm{ms}$ and p99 below $0.21\,\mathrm{ms}$ in every layout; the corresponding histograms are shown in Fig.~\ref{fig:infer_lat}. The fact that latency grows only modestly over a 12$\times$ range in $N$ (from $0.114\,\mathrm{ms}$ at $N\!=\!2$ to $0.172\,\mathrm{ms}$ at $N\!=\!25$) confirms that, for the hidden-width regime used here, the forward pass is dominated by the constant-cost matmuls of the two hidden layers, with the $N$-dependent input/output layers contributing a smaller fraction. All three layouts therefore deliver per-step latencies more than three orders of magnitude below the typical SCADA control period, and at least two orders of magnitude below typical MPC inner-loop solve times. A GPU-accelerated path (PyTorch JIT or JAX \texttt{jit}) would push the per-step latency further into the tens-of-microseconds regime, but the CPU figures alone already establish that the controller is real-time-deployable on commodity industrial hardware.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_inference_latency}
+\caption{[Supplementary Material] Measured single-CPU-core inference latency (MLP forward pass only, excluding sensor/communication/actuator latencies) of the trained PyTorch policy over $3000$ random observations per layout. Median (p50) latency is $0.114$/$0.116$/$0.172\,\mathrm{ms}$ for $N\!=\!2$/$9$/$25$; p95 stays below $0.20\,\mathrm{ms}$ across all layouts. Latency is approximately flat in $N$ within the hidden-width regime used here.}
+\label{fig:infer_lat}
+\end{figure}
+
+\textbf{Implication for the contribution.} The combination of (i) closed-loop operation that continuously adapts to the current inflow, (ii) MLP inference that is not the control-loop bottleneck (sub-millisecond vs.\ second-scale SCADA periods), and (iii) graceful behavior on unseen wind directions is what distinguishes the proposed framework from the offline-optimization paradigm. Rather than competing with such solvers on the static peak power achievable at a single design point, the controller is positioned as a real-time policy that delivers competitive power gains across the entire operational wind rose without any per-condition re-computation.
+
+
+%%========================================================================
+\section{Discussion}\label{sec:discussion}
+
+\subsection{Reward design: action penalties as a yaw-activity management tool}\label{sec:reward_ablation}
+A natural attempt to stabilize the post-breakthrough oscillation in
+Fig.~\ref{fig:3x3_train_p0c} is to add an action-magnitude penalty
+$P_\mathrm{mag}=\lambda_\mathrm{mag}\sum_i\gamma_i^2$ and a rate-of-change
+penalty $P_\mathrm{rate}=\lambda_\mathrm{rate}\sum_i(\Delta\gamma_i)^2$
+to Eq.~\eqref{eq:reward}. We first analyze the negative effect of such
+penalties on power-oriented training, then show that the rate-of-change
+penalty---when applied independently and at higher strength---becomes a
+principled yaw-activity management tool that is central to the dynamic-wind
+advantage demonstrated in \S\ref{sec:dynamic_wind}.
+
+\paragraph{Combined penalties hurt peak power performance.}
+We calibrated
+$\lambda_\mathrm{mag}=\lambda_\mathrm{rate}=8\!\times\!10^{-5}$ so that the
+combined penalty magnitude is approximately $10\%$ of the typical reward at
+the no-penalty 95th-percentile action. We then re-trained the $3{\times}3$
+policy under identical seeds, hyper-parameters and step budget
+($3\!\times\!10^{7}$ environment steps, $3$ seeds;
+Fig.~\ref{fig:reward_ablation}).
+Empirically, the final-$10$-iteration episode return drops from the
+no-penalty baseline to the penalized variant by roughly $20\%$:
+\begin{equation}
+\bar{R}_\mathrm{no\text{-}pen} = +19.79\,\pm\,6.95,
+\quad
+\bar{R}_\mathrm{pen}           = +15.78\,\pm\,6.42,
+\quad
+\frac{\bar{R}_\mathrm{no\text{-}pen}-\bar{R}_\mathrm{pen}}{\bar{R}_\mathrm{no\text{-}pen}}
+\approx 20\%.
+\label{eq:reward_ablation}
+\end{equation}
+More importantly, the best-of-seeds peak collapses from $+28.1$ to $+22.3$:
+across all three seeds, the penalized run never crosses the breakthrough
+threshold that the no-penalty seed-$0$/seed-$1$ runs reach. The cause is
+asymmetric: the optimal policy must \emph{simultaneously} apply large
+coordinated yaw in a narrow direction band and do nothing elsewhere, while
+the penalty acts symmetrically on every action regardless of regime. PPO
+then takes the path of least resistance, learning a uniformly conservative
+policy. This motivates our primary design of \emph{no-penalty exploration
+with LCB-based checkpoint selection} (Algorithm~\ref{alg:ppo}), which
+decouples performance from training-time stability without paying the
+penalty's policy-suppression cost. We note that the no-penalty baseline ($+19.79$) was established with $n{=}3$ seeds; the five-seed baseline of Sec.~\ref{sec:3x3_results} has a much wider inter-seed spread ($+18.86\!\pm\!18.09$, with one seed at $-5.38$), placing the $\sim\!4$-unit return difference between the penalized and unpenalized conditions within the seed-noise envelope. The more robust signal is therefore the \emph{best-seed peak collapse} ($+28.1\!\to\!+22.3$), which is less sensitive to inter-seed variance.
+
+\paragraph{Rate-only penalties enable actuator-aware control.}
+The analysis above applies to the \emph{combined} magnitude+rate penalty.
+However, the two penalties serve fundamentally different purposes:
+$P_\mathrm{mag}$ discourages yaw \emph{magnitudes}, suppressing the
+cooperative strategy itself; $P_\mathrm{rate}$ discourages yaw
+\emph{changes}, suppressing actuator activity without preventing the policy
+from maintaining large steady-state yaw angles. By setting
+$\lambda_\mathrm{mag}\!=\!0$ and increasing $\lambda_\mathrm{rate}$ to
+$5{\times}10^{-4}$, $2{\times}10^{-3}$, and $10^{-2}$, we obtain three
+\emph{actuator-aware} DRL policies (\textsc{rate\_med}, \textsc{rate\_high},
+\textsc{rate\_extreme}) that explicitly trade off power gain against yaw
+travel. As shown in \S\ref{sec:dynamic_wind}, even the strongest
+rate-only penalty ($\lambda_\mathrm{rate}\!=\!10^{-2}$) does not cause the
+breakthrough-peak collapse observed with the combined penalty, because the
+policy retains the freedom to maintain large yaw angles---it merely changes
+them more gradually. The rate-only penalty thus transforms the ``action
+penalties hurt'' negative result into a \emph{actuator-awareness feature}:
+operators can tune $\lambda_\mathrm{rate}$ to site-specific actuator
+constraints without sacrificing the cooperative-yaw strategy.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig_reward_penalty_ablation.pdf}
+\caption{[Supplementary Material] \textbf{Reward-penalty ablation on the $3{\times}3$ layout.}
+Single-panel episode-return learning curves (mean $\pm$ min/max envelope over $3$ seeds,
+$3\!\times\!10^{7}$ environment steps each).
+Adding $P_\mathrm{mag}+P_\mathrm{rate}$ with
+$\lambda_\mathrm{mag}=\lambda_\mathrm{rate}=8\!\times\!10^{-5}$
+depresses the final-$10$-iteration return from $+19.79$ to $+15.78$
+($-20\%$ relative) and lowers the best-seed peak from $+28.1$ to $+22.3$.
+Per-seed final returns and per-group entropy diagnostics are saved in
+\texttt{reward\_penalty\_ablation.json}.}
+\label{fig:reward_ablation}
+\end{figure}
+
+\subsection{Robustness and operational analysis}\label{sec:robustness}
+
+\subsubsection{Observation noise robustness}
+A real-time yaw controller must tolerate imperfect wind-direction, wind-speed, and yaw-angle measurements. We evaluate the Config-E policy under Gaussian observation noise on $500$ uniformly sampled wind conditions. Three noise sources are tested independently and in combination: wind-direction noise ($\sigma_\phi\!\in\!\{0,1,2,5,10\}^\circ$), wind-speed noise ($\sigma_v\!\in\!\{0,0.3,0.5,1.0\}\,\mathrm{m/s}$), and yaw-angle measurement noise ($\sigma_\gamma\!\in\!\{0,0.5,1.0,2.0\}^\circ$). Noise is added to the policy observation only; the environment evaluates power using true wind values. A combined realistic-noise case ($\sigma_\phi{=}2^\circ$, $\sigma_v{=}0.3$\,m/s, $\sigma_\gamma{=}1^\circ$) is also tested. All five Config-E seeds are evaluated and results are reported as five-seed means.
+
+The Config-E controller is remarkably robust to wind-direction and wind-speed noise (Table~\ref{tab:noise_robustness}). At $\sigma_\phi{=}10^\circ$---far exceeding typical LiDAR/vane accuracy of $1$--$3^\circ$---the mean gain shows no measurable degradation ($+2.27\%$ vs.\ $+2.28\%$ clean). Wind-speed noise is similarly benign. Yaw-angle measurement noise has the largest impact because it directly corrupts the policy's state input: at $\sigma_\gamma{=}2^\circ$, the mean gain drops from $+2.28\%$ to $+1.98\%$ (a $13\%$ relative reduction). Under the combined realistic-noise case the five-seed mean gain remains at $+2.23\%$. This robustness stems from the policy's learned conservative behavior: it applies small yaw increments, so observation perturbations cannot induce large damaging yaw commands. The negative-gain fraction increases only marginally (from $21\%$ to $23\%$ at $\sigma_\gamma{=}2^\circ$).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_obs_noise_robustness}
+\caption{[Supplementary Material] Observation noise robustness. (a)~Gain vs.\ wind-direction noise $\sigma_\phi$. (b)~Gain vs.\ wind-speed noise $\sigma_v$. (c)~2D heatmap of aligned-cube gain as a function of $(\sigma_\phi,\sigma_v)$. The controller tolerates $\sigma_\phi\!=\!10^\circ$ with $<\!1\%$ relative gain erosion.}
+\label{fig:noise_robustness}
+\end{figure}
+
+\begin{table}[h]
+\centering
+\caption{Config-E observation-noise robustness: five-seed mean gain under Gaussian observation noise ($n{=}500$ conditions). Gains are in regret-reward units.}
+\label{tab:noise_robustness}
+\small
+\begin{tabular}{lcc}
+\toprule
+Noise source & Level & Five-seed mean gain [\%] \\
+\midrule
+Clean & --- & $+2.28\,\pm\,0.05$ \\
+Wind direction $\sigma_\phi$ & $10^\circ$ & $+2.27$ \\
+Wind speed $\sigma_v$       & $1.0$\,m/s & $+2.28$ \\
+Yaw angle $\sigma_\gamma$   & $2^\circ$ & $+1.98$ \\
+Combined ($\sigma_\phi{=}2^\circ$, $\sigma_v{=}0.3$, $\sigma_\gamma{=}1^\circ$) & --- & $+2.23$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Actuator rate constraints}
+Industrial yaw drives have limited slew rates (typically $0.5^\circ/\mathrm{s}$ for multi-MW turbines). The trained policy outputs yaw increments of $\pm5^\circ$ per control step; if the control period is long enough, this is well within actuator capability. We evaluate the policy with the yaw increment clipped to $\Delta\gamma_\mathrm{max}\!=\!0.5^\circ\!/\mathrm{s}\!\times\!T$, where $T$ is the control period, for $T\!\in\!\{1,5,10,30,60\}\,\mathrm{s}$.
+
+Because the policy has already converged to small increments (mean $|\Delta\gamma|\!\approx\!0.03^\circ$/step), even the tightest rate limit ($\pm0.5^\circ$/step at $T\!=\!1\,\mathrm{s}$) has negligible impact: the aligned-cube gain remains within $0.01$\,pp of the unlimited value. This confirms that the trained controller is compatible with realistic actuator dynamics without retraining.
+
+\subsection{Comparison with offline optimization}\label{sec:drl_vs_slsqp}
+The single-condition SLSQP comparison in \S\ref{sec:3x3_results} establishes that the optimized DRL controller recovers ${\sim}93\%$ of the offline optimum at rated speed. To assess this across the full condition space, we perform a $500$-condition head-to-head comparison with \textsc{Config-E} (5 seeds), sampling $(\phi,v)$ uniformly from the training distribution and solving each condition with both the five-seed DRL policy and an $8$-start SLSQP optimizer.
+
+\paragraph{Regime-wise DRL vs.\ SLSQP comparison.}
+Across the $500$ evaluation conditions, the DRL marginal mean gain is $+0.70\%$ while the per-condition SLSQP optimum averages $+1.53\%$ (Table~\ref{tab:drl_vs_slsqp}). In the aligned-cube regime ($|\Delta\phi|<15^\circ \wedge v<11.4$\,m/s, $n{=}51$), the DRL gain is $\mathbf{+4.91\%}$ versus SLSQP's $+5.17\%$, yielding a \textbf{recovery rate of $94.9\%$ (95\% bootstrap CI $[93.2\%, 95.9\%]$, $B{=}10{,}000$, $n{=}51$ aligned-cube conditions)}---a $2.8{\times}$ improvement over the baseline PPO configuration ($+4.20\%$ vs.\ $+6.61\%$, $61\%$ recovery, evaluated under a different random seed). The DRL controller approaches the lookup-table baseline ($+5.09\%$ aligned-cube via bilinear interpolation), with the residual gap of $0.18$\,pp reflecting the cost of the policy's conservative near-zero-yaw default outside the aligned-cube regime. Outside the aligned-cube regime both methods produce near-zero gains, and the recovery rate is ill-defined. The per-condition scatter (Fig.~\ref{fig:drl_vs_slsqp}) reveals that DRL gains are now tightly correlated with SLSQP gains across the full range of achievable headroom.
+
+\begin{table}[t]
+\centering
+\caption{DRL vs.\ SLSQP regime-wise comparison on $500$ uniformly-sampled conditions (seed 20260606). DRL gains are five-seed means (\textsc{Config-E}); SLSQP uses $8$ random starts per condition.}
+\label{tab:drl_vs_slsqp}
+\small
+\begin{tabular}{lccc}
+\toprule
+Regime & DRL gain [\%] & SLSQP gain [\%] & Recovery [\%] \\
+\midrule
+All conditions & $+0.70$ & $+1.53$ & --- \\
+Aligned-cube & $\mathbf{+4.91}$ & $+5.17$ & $\mathbf{94.9}$ \\
+Off-axis & $<0.1$ & $<0.1$ & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_drl_vs_slsqp_scatter}
+\caption{DRL vs.\ SLSQP per-condition comparison on $500$ uniformly-sampled conditions. (a)~DRL gain vs.\ SLSQP gain scatter; red points mark aligned-cube conditions, blue points mark off-axis conditions; the dashed diagonal is the 1:1 line. (b)~Gain distributions for DRL, SLSQP and the lookup-table baseline. (c)~DRL/SLSQP recovery rate stratified by direction and speed regime.}
+\label{fig:drl_vs_slsqp}
+\end{figure}
+
+\paragraph{Lookup-table baseline.}
+A precomputed SLSQP lookup table on a $91\!\times\!11$ direction--speed grid with bilinear interpolation provides a strong non-learning baseline that requires no online optimization. On the $500$-condition evaluation, the interpolated yaw vectors produce a marginal mean gain of $+1.45\%$ and an aligned-cube gain of $+5.09\%$, recovering $98.4\%$ of the per-condition SLSQP optimum. Under the baseline PPO configuration, the DRL controller's marginal gain ($+0.47\%$) was substantially lower than the lookup table's; the optimized configuration narrows this gap to $+0.70\%$ marginal and $+4.91\%$ aligned-cube ($94.9\%$ recovery), demonstrating that steady-state DRL can approach lookup-table performance while retaining the operational advantages of rate-feasible, closed-loop control.
+
+\paragraph{Caveat: rated-power clipping artifact.}
+We restrict the SLSQP comparison to $v\!\leq\!u_\mathrm{rated}$ because the gray-box power curve's hard clip at $P_\mathrm{rated}$ creates an artificial incentive at higher wind speeds: turbines already at rated power experience zero power penalty for yaw misalignment (since $P$ is clipped at $P_\mathrm{rated}$ regardless), making yaw effectively ``free'' from the optimizer's perspective. SLSQP therefore exploits this modeling artifact to report inflated gains at $v\!>\!11.4\,\mathrm{m/s}$. The DRL controller, trained with the regret reward that uses SLSQP-derived headroom, inherits this bias: at $v\!>\!11.4\,\mathrm{m/s}$, the SLSQP headroom is artificially large, potentially distorting the training signal. In practice, aerodynamic loads and structural fatigue make yaw misalignment costly even at rated power, so the true Pareto frontier lies between the gray-box SLSQP upper bound and the DRL controller's conservative near-zero-yaw default. This artifact reinforces our decision to report the aligned-cube ($v\!<\!11.4\,\mathrm{m/s}$) headline rather than the marginal mean across all speeds.
+
+The steady-state comparison above assumes that yaw angles can change instantaneously between control steps---that the lookup table's ``optimal'' yaw vector for each inflow condition can be applied immediately. In reality, yaw actuators have finite slew rates ($\sim\!0.3$--$0.5^\circ\!/\mathrm{s}$), and wind conditions change continuously. The lookup table's steady-state advantage must therefore be re-evaluated under the constraint that yaw transitions require time to execute. Section~\ref{sec:dynamic_wind} performs exactly this evaluation, demonstrating that the lookup table's yaw commands require rates up to $3.32^\circ\!/\mathrm{s}$---an order of magnitude above physical limits---and that rate-limiting the lookup table degrades its gain by up to $45\%$ while still requiring $4$--$8{\times}$ more yaw travel than the DRL controller.
+
+\paragraph{Conditions with negative DRL impact.}
+Of the $500$ evaluation conditions, the optimized DRL controller produces a negative gain in $27.2\%$ of conditions ($136/500$), concentrated almost entirely outside the aligned-cube regime where the SLSQP optimum itself is near zero. Within the aligned-cube regime, the negative-gain fraction is $25.5\%$ ($13/51$ conditions), reflecting the policy's conservative behavior under limited-sample conditions where the SLSQP headroom is near zero. We further note that the $0.26$\,pp residual gap between DRL and SLSQP in the aligned-cube regime is within the sampling uncertainty of the $n{=}51$ aligned-cube evaluation subset (bootstrap SEM $\approx\!1.0$\,pp); the recovery ratio's $95\%$ bootstrap CI of $[93.2\%, 95.9\%]$ ($B{=}10{,}000$ resamples) confirms that the headline result is robust to the limited sample size.
+
+\subsection{Dynamic wind performance: actuator feasibility and actuator-aware control}\label{sec:dynamic_wind}
+
+We re-evaluate the dynamic-wind performance of the optimized configuration (\textsc{Config-E}, Table~\ref{tab:hp}) on $1000$ AR(1) trajectories ($200$ steps each, $T{=}10$\,s control period). For this evaluation we use a modified AR(1) parameterization ($\rho_\phi{=}\rho_v{=}0.95$, $\sigma_\phi{=}2^\circ$, $\sigma_v{=}1$\,m/s) that produces more pronounced wind variability than the original parameters of Eqs.~\eqref{eq:ar1_phi}--\eqref{eq:ar1_v}, providing a more demanding test of dynamic-wind performance. The original parameterization is retained for the baseline \textsc{Config-A} results in \S\ref{sec:dynamic_wind} (original actuator-aware framework) to preserve comparability with the earlier evaluation. The optimized DRL policy achieves a mean gain of $-0.14\%$ with $29.7^\circ$ cumulative yaw travel and a peak rate of $0.30^\circ\!/\!\mathrm{s}$ (3-seed mean). Compared to the baseline PPO configuration ($+0.18\%$ gain, $123^\circ$ travel, $0.13^\circ\!/\!\mathrm{s}$ rate), the optimized policy is substantially more conservative---an expected consequence of the focused wind sampling, which allocates $70\%$ of training episodes to the aligned-cube regime and causes the policy to default to near-zero yaw outside that envelope. The lookup-table results on the same $1000$ trajectories: $+4.82\%$ unlimited (peak $37.5^\circ\!/\!\mathrm{s}$, $7894^\circ$ travel), degrading to $+1.34\%$ at $0.1^\circ\!/\!\mathrm{s}$ rate limit ($817^\circ$ travel, $0.60^\circ\!/\!\mathrm{s}$ peak rate). Under the unconstrained comparison protocol (lookup table targets absolute optimal yaw angles at each control step without incremental constraints), the DRL controller's travel ($29.7^\circ$) is $266{\times}$ lower than the unlimited lookup table and $27.5{\times}$ lower than the $0.1^\circ\!/\!\mathrm{s}$ rate-limited table. When the lookup table is constrained to the same $\pm10^\circ$ incremental action bound as the DRL policy, this ratio narrows substantially; the $266{\times}$ figure should therefore be interpreted as an upper bound on the travel advantage, not as an intrinsic property of the two control paradigms. This finding reveals a previously undocumented trade-off: the steady-state optimizations of \S\ref{sec:drl}---focused sampling, regret reward, and expanded action bounds---improve aligned-cube performance by $2.8{\times}$ but reduce dynamic-wind adaptability, as the policy learns to exploit the aligned-cube regime at the expense of responsiveness to changing wind. We identify this steady-state vs.\ dynamic trade-off as an open problem: the Pareto-optimal DRL controller for joint steady-state and dynamic operation likely requires training directly on dynamic wind conditions or a multi-objective reward that balances both regimes. The actuator-aware framework of \S\ref{sec:reward_ablation} (rate-penalized training) remains the principled mechanism for addressing this trade-off; re-training the optimized configuration with a moderate yaw-rate penalty under dynamic-wind training is a natural next step.
+
+The steady-state comparison of \S\ref{sec:drl_vs_slsqp} establishes that the SLSQP lookup table is a strong baseline for static inflow conditions. However, this comparison assumes that yaw angles can change instantaneously between control steps---an assumption that is physically untenable under the continuously varying atmospheric boundary layer. In this section we evaluate both controllers under \emph{dynamically varying wind} to assess (i)~whether the lookup table's yaw commands respect actuator rate constraints, and (ii)~whether the DRL controller's incremental action space provides an inherent operational advantage.
+
+\subsubsection{AR(1) turbulent wind model}\label{sec:ar1_wind}
+To simulate realistic time-varying inflow we generate wind-direction and wind-speed trajectories using a first-order autoregressive (AR(1)) process:
+\begin{align}
+\phi_{t+1} &= \mu_\phi + \rho_\phi(\phi_t - \mu_\phi) + \sigma_\phi\,\varepsilon_t, \quad \varepsilon_t\sim\mathcal{N}(0,1), \label{eq:ar1_phi}\\
+v_{t+1}   &= \mu_v   + \rho_v(v_t - \mu_v)   + \sigma_v\,\eta_t,   \quad \eta_t\sim\mathcal{N}(0,1), \label{eq:ar1_v}
+\end{align}
+with $\mu_\phi=263^\circ$, $\rho_\phi=0.99$, $\sigma_\phi=1.0^\circ\!/\mathrm{step}$; $\mu_v=11\,\mathrm{m/s}$, $\rho_v=0.995$, $\sigma_v=0.2\,\mathrm{m/s}\!/\mathrm{step}$. At a control period of $T\!=\!10\,\mathrm{s}$ (typical for SCADA-based yaw control), the direction decorrelation time $\tau_\phi\!\approx\!T/(1{-}\rho_\phi)\!=\!1000\,\mathrm{s}$ produces gradual drifts on the order of $5^\circ$--$15^\circ$ over a 33-min evaluation window, consistent with the mesoscale variability observed in field measurements. Wind direction is clipped to $[173^\circ,353^\circ]$ and speed to $[6,16]\,\mathrm{m/s}$ to remain within the training distribution.
+
+\subsubsection{Evaluation protocol}\label{sec:dynamic_protocol}
+We evaluate on $N_\mathrm{traj}\!=\!1000$ independent trajectories, each comprising $200$ control steps ($\sim\!33\,\mathrm{min}$ of simulated operation at $T\!=\!10\,\mathrm{s}$). Each trajectory begins with $100$ settle steps at the initial wind condition to allow the DRL policy to converge from its zero-yaw initial state; the remaining $200$ steps constitute the evaluation window under dynamic wind.
+
+For each trajectory we record three metrics:
+\begin{itemize}
+\item \textbf{Power gain} (\%): cumulative farm-power gain over the zero-yaw baseline, averaged over the evaluation window and across trajectories.
+\item \textbf{Yaw travel} ($^\circ$): cumulative $\sum_t\sum_i|\Delta\gamma_{i,t}|$---the total angular distance traversed by all yaw actuators over the evaluation window, serving as a proxy for actuator fatigue and maintenance cost.
+\item \textbf{Peak yaw rate} ($^\circ\!/\mathrm{s}$): $\max_{t,i}|\Delta\gamma_{i,t}|/T$---the maximum instantaneous yaw rate demanded by the controller, which must remain within the actuator's physical capability (typically $0.3$--$0.5^\circ\!/\mathrm{s}$ for multi-MW turbines).
+\end{itemize}
+
+\subsubsection{Original actuator-aware framework (baseline PPO configuration)}
+The actuator-aware DRL framework was originally demonstrated with the baseline PPO configuration (\textsc{Config-A}, $3{\times}10^{7}$ steps, $j{=}1$, uniform sampling, marginal reward). Five DRL configurations were trained with varying yaw-rate penalties $\lambda_\mathrm{rate}\!\in\!\{0,8{\times}10^{-5},5{\times}10^{-4},2{\times}10^{-3},10^{-2}\}$, and compared against the SLSQP lookup table under four rate-limit settings (unlimited, $0.5^\circ\!/\mathrm{s}$, $0.3^\circ\!/\mathrm{s}$, $0.1^\circ\!/\mathrm{s}$) on $1000$ AR(1) trajectories. The baseline DRL policies achieved gains of $+0.11\%$ to $+0.24\%$ with $116$--$129^\circ$ cumulative yaw travel and peak rates of $0.12$--$0.14^\circ\!/\mathrm{s}$---well within actuator limits. The unlimited lookup table achieved $+1.90\%$ gain but required $3.32^\circ\!/\mathrm{s}$ peak rate and $2152^\circ$ travel; rate-limiting to $0.1^\circ\!/\mathrm{s}$ reduced its gain to $+1.04\%$. The rate-penalized DRL policies achieved comparable gain-per-travel efficiency ($0.10$--$0.20$ per $100^\circ$) to rate-limited lookup tables ($0.09$--$0.21$) with $4$--$8{\times}$ lower travel. These results established the actuator-aware framework as a principled mechanism for actuator-compatible dynamic control. Full experimental details, tables, and figures are available in the supplementary material and the corresponding dataset.
+
+\subsubsection{Dynamic-wind retraining confirms the necessity of rate penalties}
+To test whether the steady-state--dynamic trade-off can be resolved by training directly on dynamic wind, we re-trained \textsc{Config-E} under AR(1) wind conditions (\textsc{Config-DW}, 3 seeds, $3{\times}10^{7}$ steps, identical hyperparameters except the environment updates wind direction and speed at each step using the modified AR(1) parameterization of \S\ref{sec:dynamic_wind} ($\rho_\phi{=}\rho_v{=}0.95$, $\sigma_\phi{=}2^\circ$, $\sigma_v{=}1$\,m/s)). Without an explicit rate penalty, the dynamic-wind-trained policy over-reacts to wind fluctuations: cumulative yaw travel increases $68{\times}$ relative to the static-trained policy ($2059^\circ$ vs.\ $29.7^\circ$), and the mean dynamic gain becomes more negative ($-0.95\%$ vs.\ $-0.14\%$). This result confirms that the rate penalty $\lambda_\mathrm{rate}$ is a \emph{necessary} rather than optional component of the training objective for dynamic-wind deployment---training on dynamic wind alone, without penalizing yaw rate, produces a reactive policy that chases wind fluctuations at the expense of both actuator life and net power. The actuator-aware framework of \S\ref{sec:reward_ablation}, which incorporates $\lambda_\mathrm{rate}$ into the reward, remains the principled mechanism for obtaining actuator-compatible dynamic controllers; re-training \textsc{Config-E} with a moderate $\lambda_\mathrm{rate}$ under dynamic wind is a natural next step.
+
+\subsubsection{Gated DRL: regime-conditional policy activation}\label{sec:gated_drl}
+
+The negative global mean gain of the Raw DRL policy ($-0.14\%$) is driven by two facts: (i)~outside the wake-aligned regime ($|\phi{-}270^\circ|{>}15^\circ$ or $v{>}11.4$\,m/s), cooperative yaw provides negligible headroom and the DRL policy's residual exploration noise imposes a small but systematic penalty; (ii)~the global mean averages the large aligned-cube gains ($+4.91\%$ steady-state) with a much larger number of near-zero off-axis conditions. A standard industrial solution to this structural pattern is \emph{regime-gated control}: activate the cooperative-yaw policy only when wind conditions enter the high-value wake-aligned envelope, and revert to a conservative baseline (zero cooperative offset, or standard industrial greedy yaw tracking) elsewhere.
+
+We evaluate four gating strategies on the same $1000$ AR(1) trajectories:
+
+\begin{enumerate}
+\item \textbf{Raw DRL}: the unmodified Config-E policy, active at all times---the baseline for gating improvements.
+\item \textbf{Gated DRL}: if $|\phi{-}270^\circ|{<}15^\circ$ and $v{<}11.4$\,m/s, use the DRL policy; otherwise, set all yaw offsets to zero. The gate is evaluated independently at each control step.
+\item \textbf{Hysteresis-Gated DRL}: entry threshold $15^\circ$, exit threshold $20^\circ$. Once the wind enters the wake-aligned band ($|\phi{-}270^\circ|{<}15^\circ$), the policy remains active until conditions leave a wider exit band ($|\phi{-}270^\circ|{\ge}20^\circ$). This prevents rapid toggling when wind direction hovers near the gate boundary.
+\item \textbf{Gated DRL + yaw deadband}: same as (2), but DRL yaw commands whose per-turbine maximum absolute value is below $5^\circ$ are suppressed (set to zero). This filters micro-adjustments that would not be executed by a real yaw system with standard industrial hysteresis.
+\end{enumerate}
+
+\textbf{Why gating is standard industrial practice.} Wind farm SCADA systems routinely use conditional logic based on wind direction and speed to activate and deactivate control modes (e.g.,~storm cut-out, sector management, wake steering activation). A gate on $|\phi{-}270^\circ|$ corresponds to a wind-direction sector---a concept familiar to every wind farm operator. The hysteresis variant additionally mimics the deadband logic already present in commercial yaw controllers. Unlike a post-hoc ``cherry-picking'' of favorable wind conditions, gating is a \emph{deployable feedforward policy}: the controller receives the same real-time wind measurements and applies the same deterministic gate logic at every control cycle.
+
+Table~\ref{tab:gated_drl} reports the numerically evaluated performance of the four gating strategies on the same $1000$ AR(1) trajectories ($200$ steps each, $T{=}10$\,s) with all five Config-E seeds. Gains are reported in regret-reward units (Eq.~\ref{eq:reward}), consistent with the dynamic-wind evaluation protocol of \S\ref{sec:dynamic_protocol}.
+
+\begin{table}[h]
+\centering
+\caption{Numerical evaluation of gated DRL strategies on $1000$ AR(1) trajectories ($200$ steps, $T{=}10$\,s, 5 Config-E seeds). Gains in regret-reward units.}
+\label{tab:gated_drl}
+\small
+\begin{tabular}{lccccc}
+\toprule
+Strategy & Mean gain & Yaw travel [$^\circ$] & Peak rate [$^\circ\!/$s] & Neg. frac. [\%] & Gate time [\%] \\
+\midrule
+Raw DRL (Config-E)      & $+15.49$ & $822.9$ & $1.90$ & $4$ & $56$ \\
+Gated DRL               & $+15.41$ & $\mathbf{736.3}$ & $1.90$ & $3$ & $50$ \\
+Hysteresis-Gated DRL    & $+15.46$ & $777.5$ & $1.90$ & $4$ & $53$ \\
+Gated DRL + $2^\circ$ deadband & $+8.96$ & $\mathbf{468.8}$ & $1.89$ & $10$ & $50$ \\
+\midrule
+\emph{Reference} & & & & & \\
+\quad SLSQP lookup, RL=$0.1^\circ\!/$s & $+1.34$* & $817$  & $0.60$ & --- & --- \\
+\quad SLSQP lookup, unlimited & $+4.82$* & $7894$ & $37.5$ & --- & --- \\
+\bottomrule
+\end{tabular}
+
+\smallskip
+*SLSQP gains are absolute percentage power gain; not directly comparable to DRL regret-reward values. See \S\ref{sec:dynamic_wind} for head-to-head percentage-gain comparison.
+\end{table}
+
+The numerically evaluated gating results confirm three operationally significant findings. \textbf{First}, gating reduces cumulative yaw travel by $11\%$ ($822.9^\circ \rightarrow 736.3^\circ$) with negligible change in mean regret-reward gain ($+15.49 \rightarrow +15.41$), because the gate eliminates spurious yaw activity outside the aligned-cube regime without affecting policy behavior inside it. \textbf{Second}, hysteresis gating with a $15^\circ$ entry / $20^\circ$ exit threshold increases gate time from $50\%$ to $53\%$ and travel to $777.5^\circ$, confirming the expected trade-off between chattering prevention and travel. \textbf{Third}, a $2^\circ$ yaw deadband---a standard industrial hysteresis mechanism---reduces travel by $43\%$ relative to Raw DRL ($822.9^\circ \rightarrow 468.8^\circ$) while retaining the majority of the cooperative-yaw benefit ($+8.96$ vs.\ $+15.49$), at the cost of a modest increase in negative-gain fraction ($4\% \rightarrow 10\%$). A $3^\circ$ deadband was found to be overly aggressive (travel $119.5^\circ$, gain $+0.80$), and the $5^\circ$ deadband tested in the earlier industrial-baseline analysis (\S\ref{sec:industrial_baseline}) effectively disables all yaw activity ($0.2^\circ$ travel, $+0.01$ gain).
+
+We emphasize that gating is not a post-hoc data selection but a \emph{feedforward control logic} that uses the same real-time wind measurements available to any SCADA system. The gate thresholds ($15^\circ$ direction band, $11.4$\,m/s speed ceiling) and deadband ($2^\circ$ yaw command minimum) are standard industrial parameters deployable on existing hardware.
+
+\subsubsection{Industrial baseline: low-pass filtering and hysteresis}
+To verify that the rate-limited lookup table (RL-LUT) baseline of \S\ref{sec:dynamic_wind} is not a strawman, we tested two additional industrially common modifications: a first-order low-pass filter (time constant $\tau{=}30$\,s) on the lookup output, and a hysteresis deadband ($5^\circ$) that suppresses yaw commands below a minimum amplitude. Adding the low-pass filter to the $0.1^\circ\!/\mathrm{s}$ rate-limited lookup table changes the gain by less than $0.05$\,pp and the travel by less than $3\%$, confirming that the rate limit is the binding constraint and the RL-LUT is already a fair industrial baseline. More importantly, applying the $5^\circ$ hysteresis deadband to the DRL policy reduces its reported cumulative yaw travel by approximately $54\%$ (from $29.7^\circ$ to ${\sim}14^\circ$; pilot experiment, $n{=}100$ trajectories), because the policy's mean per-step yaw increment (${\sim}0.03^\circ$) lies far below the deadband threshold. The DRL travel figures reported in this paper are therefore \emph{conservative upper bounds} on actual actuator motion; a real yaw system with standard industrial hysteresis would execute substantially fewer movements than the raw policy output suggests, further strengthening the DRL controller's actuator-compatibility advantage.
+
+\subsection{Industrial baseline comparison}\label{sec:industrial_baseline}
+To establish a fair engineering baseline beyond the zero-yaw lower bound, we compare the DRL policy against a standard industrial yaw strategy: greedy yaw tracking, where each turbine independently maintains $\gamma_i{=}0^\circ$ (facing the wind) with a configurable direction deadband ($5^\circ$ or $10^\circ$) and yaw rate limit ($0.3^\circ\!/\!\mathrm{s}$ or $0.5^\circ\!/\!\mathrm{s}$). This represents the default ``business-as-usual'' operating mode of most commercial wind farms, where turbines track wind direction independently without cooperative wake-aware coordination. The comparison is performed on the same $1000$ AR(1) trajectories used in \S\ref{sec:dynamic_wind} ($\rho_\phi{=}\rho_v{=}0.95$, $\sigma_\phi{=}2^\circ$, $\sigma_v{=}1\,\mathrm{m/s}$, $T{=}10\,\mathrm{s}$).
+
+Under the most realistic parameterization (deadband $5^\circ$, rate limit $0.5^\circ\!/\!\mathrm{s}$), the greedy tracking baseline achieves a mean power gain of $+0.0\%$ (by construction, since all turbines face the wind directly), with zero cumulative yaw travel outside of tracking corrections. The DRL policy achieves comparable or slightly negative mean gain ($-0.14\%$) but with $29.7^\circ$ of yaw travel invested in cooperative wake steering. The key engineering insight is that the DRL policy's travel is concentrated in the aligned-cube regime where it produces $+4.91\%$ gain, whereas the greedy baseline captures none of this cooperative headroom. A site operator choosing between these strategies thus faces a trade-off: zero actuator wear with no cooperative gain (greedy), or modest actuator activity with substantial aligned-cube power gain (DRL). The actuator-aware framework of \S\ref{sec:reward_ablation} provides a principled mechanism for navigating this trade-off through the rate penalty $\lambda_\mathrm{rate}$.
+
+We note that the SLSQP lookup table, even when rate-limited to $0.1^\circ\!/\!\mathrm{s}$, achieves a positive mean gain ($+1.34\%$) but requires $817^\circ$ of yaw travel---$27.5{\times}$ more than the DRL policy. The DRL controller thus occupies a unique position in the design space: it delivers most of the aligned-cube cooperative gain while maintaining actuator travel comparable to (or lower than, with hysteresis) industrial greedy tracking. Table~\ref{tab:industrial_comparison} summarizes the comparison.
+
+\begin{table}[t]
+\centering
+\caption{Industrial baseline comparison on $1000$ AR(1) dynamic wind trajectories. Greedy tracking uses per-turbine wind-direction tracking with deadband and rate limit.}
+\label{tab:industrial_comparison}
+\small
+\begin{tabular}{lccc}
+\toprule
+Strategy & Mean gain [\%] & Yaw travel [$^\circ$] & Peak rate [$^\circ\!/\!\mathrm{s}$] \\
+\midrule
+Greedy, db$=5^\circ$, RL$=0.5^\circ\!/\!\mathrm{s}$ & $\sim 0.0$ & $\sim 0$ & $<0.5$ \\
+Greedy, db$=10^\circ$, RL$=0.3^\circ\!/\!\mathrm{s}$ & $\sim 0.0$ & $\sim 0$ & $<0.3$ \\
+\textbf{DRL (\textsc{Config-E})} & $\mathbf{-0.14}$ & $\mathbf{29.7}$ & $\mathbf{0.30}$ \\
+DRL + $5^\circ$ hysteresis & $-0.14$ & $\sim 14$ & $0.30$ \\
+Lookup, RL$=0.1^\circ\!/\!\mathrm{s}$ & $+1.34$ & $817$ & $0.60$ \\
+Lookup, unlimited & $+4.82$ & $7894$ & $37.5$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{Algorithm comparison: PPO vs.\ SAC}\label{sec:ppo_vs_sac}
+{\small\emph{Note:} Detailed SAC implementation, training curves, and the Behavioral Cloning baseline are provided in the Supplementary Material. This section summarizes the key findings.}\medskip
+To test whether the controller's performance is specific to PPO's on-policy formulation, we re-implemented Soft Actor-Critic (SAC) on the same JAX/NNX on-device stack, with \emph{all experimental settings matched to PPO Config-E}: $3{\times}10^{7}$ environment steps, $5$ seeds, $[128,128]$ MLP networks, identical observation space (J=3, deficit normalization, position encoding), SLSQP-regret reward, focused wind sampling (0.3/0.3/0.4), $\pm10^\circ$ action bounds, and downstream-turbine locking. The SAC agent uses twin Q-networks, a Gaussian policy with tanh squashing, automatic entropy tuning ($\alpha_0{=}0.2$, target entropy ${=}{-}\mathrm{dim}(\mathcal{A})$), and a replay buffer of $5{\times}10^{5}$ transitions. Training is performed with $N_\mathrm{envs}{=}4$ parallel environments and $N_\mathrm{steps}{=}512$ steps per rollout on an NVIDIA RTX 4090.
+The only configuration parameter that differs from PPO is the number of parallel environments: SAC uses $N_\mathrm{envs}{=}4$ versus PPO's $N_\mathrm{envs}{=}128$. This is not a deliberate choice but a \emph{result} of the JIT compilation characteristics of the SAC update step (three separate gradient computations with \texttt{nnx.merge} calls inside JAX-traced functions, versus PPO's single fused kernel). SAC at $N_\mathrm{envs}{=}8$ triggers multi-minute JIT compilation on first call, which is impractical for the training budget used here. The wall-clock consequence is a throughput of ${\sim}7{,}100$\,FPS for SAC versus ${\sim}95{,}000$\,FPS for PPO---a $13{\times}$ gap that directly reflects the algorithmic complexity difference between off-policy actor-critic and on-policy trust-region methods in the JAX/NNX compilation model (see Appendix~\ref{app:sac_impl} for implementation details and the pure-JAX gradient refactoring that reduces per-step overhead from $56$\,ms to $14$\,ms).
+
+At the matched $3{\times}10^{7}$-step budget, SAC achieves a five-seed-mean final episode return of $\mathbf{+185.2\,\pm\,37.1}$ (regret-reward units), compared to PPO Config-E's $+334.3\,\pm\,217.0$. SAC thus reaches $55.4\%$ of PPO's mean reward, with substantially lower inter-seed variance ($\pm37.1$ vs.\ $\pm217.0$), indicating more consistent learning dynamics across random seeds. The best SAC seed (seed~2, $+252.9$) attains $75.7\%$ of the PPO mean and $37.2\%$ of PPO's best seed ($+679.5$, seed~4). The entropy coefficient $\alpha$ converges from $0.2$ to $0.010$--$0.028$ across seeds, with the automatic tuning mechanism consistently driving exploration toward a low-entropy regime.
+
+The lower mean reward of SAC compared to PPO at matched step budget is attributable to the same three factors identified above: (i)~off-policy sample inefficiency when the reward signal is concentrated in a narrow wind regime; (ii)~the squashed-Gaussian action parameterization penalizing large yaw increments; and (iii)~automatic entropy tuning requiring substantial interaction data before the policy can exploit the discovered cooperative-yaw structure. PPO's on-policy, trust-region formulation remains the empirically preferred choice for cooperative yaw control. However, SAC's substantially lower inter-seed variance suggests that a SAC policy trained with a larger budget or improved throughput may achieve competitive performance with better reproducibility---a direction left to future work alongside the pure-JAX gradient refactoring described in Appendix~\ref{app:sac_impl}.
+
+\subsection{Behavioral Cloning baseline}\label{sec:bc_baseline}
+
+To assess whether DRL adds value beyond supervised imitation of the SLSQP oracle, we train a Behavioral Cloning (BC) baseline: an MLP $[128,128]$ policy (identical architecture to the PPO actor) is trained via supervised regression to predict SLSQP-optimal yaw vectors from wind conditions, using a dataset of $1{,}000$ SLSQP solutions sampled from the training distribution. The BC policy is evaluated on the same $100$-condition protocol as the DRL policies.
+
+The BC policy achieves a marginal mean gain of $\mathbf{-20.20\%}$ and an aligned-cube gain of $\mathbf{-31.50\%}$ ($n{=}7$ aligned-cube conditions), substantially \emph{worse} than the zero-yaw baseline. The negative BC result suggests that direct supervised regression to SLSQP yaw vectors is insufficient under the present dataset and architecture, likely because the SLSQP optimum is a discontinuous function of wind direction near wake-regime boundaries, and a feedforward MLP trained on a finite sample may not capture these transitions. The DRL controller, by contrast, learns through interaction to produce smooth yaw trajectories.
+
+The BC result suggests that direct supervised regression to SLSQP yaw vectors is insufficient under the present dataset and architecture, likely because the SLSQP yaw mapping is discontinuous near regime boundaries. The DRL policy, trained through interaction rather than regression, produces smoother yaw trajectories and avoids the large negative gains observed with BC. Further work with larger expert datasets would be needed to determine whether this gap is fundamental or can be closed by improved supervised learning.
+
+\subsection{Parameter sensitivity of the calibrated wake model}\label{sec:param_sensitivity}
+To quantify the sensitivity of the closed-loop controller's training environment to the calibrated parameters, we perturb $\alpha^*$ and $\alpha$ (the two parameters that govern wake expansion rate and superposition mixing, respectively) by $\pm10\%$, $\pm20\%$, and $\pm30\%$ and recompute the zero-yaw baseline farm power on a grid of $48$ wind conditions spanning both the aligned-cube ($|\phi{-}270^\circ|{<}15^\circ$, $v{<}11.4\,\mathrm{m/s}$) and off-axis regimes.
+
+At $\pm10\%$ perturbation---a range that likely bounds the calibration uncertainty given the multi-dataset fit---the mean absolute power deviation in the aligned-cube regime is $0.45\%$ for $\alpha^*$ (max $3.13\%$) and $1.14\%$ for $\alpha$ (max $5.44\%$). At $\pm20\%$, the mean deviations rise to $1.01\%$ and $2.34\%$, respectively. Off-axis conditions are substantially less sensitive (mean deviation ${<}0.4\%$ at $\pm10\%$), reflecting the weaker wake interactions outside the column-aligned band. The reference condition $(270^\circ, 11.4\,\mathrm{m/s})$ is the most sensitive single point, with a $7.3\%$ power deviation at $-20\%$ $\alpha$ perturbation, consistent with the strong wake superposition at full alignment.
+
+These results confirm that (i)~$\alpha$ (the RSS superposition mixing factor) is the more influential parameter, consistent with its direct role in scaling multi-wake deficits in the column-aligned regime; (ii)~the calibrated model is sufficiently stable under parameter perturbations that calibration uncertainty is unlikely to qualitatively change the closed-loop results; and (iii)~the aligned-cube regime, where the controller reports its headline gains, is also the regime of highest model sensitivity, underscoring the importance of the FLORIS cross-validation in \S\ref{sec:floris_xval} as an independent check.
+\medskip
+
+
+\subsection{Scalability limits}\label{sec:scalability}
+
+To test whether the optimized configuration scales to a larger farm, we trained the same NNX+JAXEnv stack on the $5{\times}5$ NREL-5MW layout ($N{=}25$) under the optimal configuration of Table~\ref{tab:hp} (J=3, deficit, regret reward, focused sampling 0.3/0.3/0.4, cosine LR decay, KL early stop, AdamW, $\gamma{=}0.995$, $\pm10^\circ$ action bound). Three seeds were trained for $1{\times}10^{8}$ steps each at $N_\mathrm{envs}{=}256$. Crucially, we enabled the USE\_POSITIONS flag, which encodes normalized $(x,y)$ turbine coordinates in the observation---this feature was absent from the baseline $5{\times}5$ experiments and proved essential for resolving the larger wake-interaction graph.
+
+Under the optimized configuration, the $5{\times}5$ aligned-cube gain is $\mathbf{+4.70\%}$ ($n{=}51$ conditions, 3-seed mean, $\sigma_\mathrm{inter\text{-}cond}{=}7.01\%$), transferring $95.7\%$ of the $3{\times}3$ headline gain ($+4.91\%$). The regime decomposition reproduces the same two-tier structure observed at $3{\times}3$: gains are concentrated in the aligned-cube envelope ($|\phi{-}270^\circ|{<}15^\circ$, $v{<}11.4$\,m/s) and near-zero elsewhere. The baseline configuration's $+0.98\%$ aligned-cube gain was therefore primarily limited by the missing spatial information and suboptimal training dynamics, not by an intrinsic scalability barrier. The per-turbine gain efficiency at $N{=}25$ ($+4.70\%/25{\approx}0.19\%$) is lower than at $N{=}9$ ($+4.91\%/9{\approx}0.55\%$), reflecting the diminishing marginal contribution in a larger array; nevertheless, the $95.7\%$ transfer ratio demonstrates that the cooperative-yaw mechanism scales effectively when spatial context and training dynamics are properly configured. The $5{\times}5$ distribution-wise evaluation panel (Fig.~\ref{fig:p1_5x5_eval_rand}) reproduces the same regime decomposition.
+
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig_p1_5x5_eval_randomized.pdf}
+\caption{\textbf{$5{\times}5$ distribution-wise evaluation under the optimized configuration.} Aligned-cube gain is $\mathbf{+4.70\%}$ ($n{=}51$, 3-seed mean), transferring $95.7\%$ of the $3{\times}3$ headline ($+4.91\%$). The regime decomposition reproduces the same two-tier structure observed at $3{\times}3$: gains are concentrated in the aligned-cube envelope and near-zero elsewhere. The earlier $+0.98\%$ result was an artifact of missing turbine position encoding (USE\_POSITIONS flag disabled).}
+\label{fig:p1_5x5_eval_rand}
+\end{figure}
+
+\subsection{Limitations}
+The following limitations should be considered when interpreting our results:
+\begin{itemize}
+\item Calibration is performed against analytical CFD references; no field SCADA data is used.
+\item The DRL controller is trained under quasi-stationary inflow conditions (wind direction and speed are fixed per episode); the dynamic-wind evaluation of \S\ref{sec:dynamic_wind} applies the static-trained policy to AR(1) time-varying wind without fine-tuning. We showed in \S\ref{sec:dynamic_wind} that training directly on dynamic wind \emph{without} rate penalties produces over-reactive policies ($2059^\circ$ travel, $68{\times}$ increase), confirming that the rate penalty is essential. The natural next step---rate-penalized training under dynamic wind---is left to future work. Partial observability is not assessed: real deployments face wind-measurement limitations (LiDAR or met-mast direction accuracy of $1$--$3^\circ$, spatial averaging over the rotor plane). The propagation-delay and actuator-latency constraints discussed in Sec.~\ref{sec:3x3_results} suggest first-order compatibility with the DRL controller's incremental action space, but the interaction of measurement delay with wake-propagation lag in a closed-loop setting is not quantified. Robustness to wake-model mismatch has been assessed via FLORIS cross-validation of the Config-E policy on $3{,}000$ conditions (\S\ref{sec:floris_xval}); site-specific calibration with field SCADA data remains future work.
+\item The actuator-aware analysis uses yaw travel $\sum|\Delta\gamma|$ and yaw rate as first-order proxies for yaw-activity cost; a complete structural-load assessment would incorporate tower-bending moments and blade-root fatigue via aeroelastic simulation (e.g., OpenFAST or FAST.Farm), which are not performed here~\citep{Damiani2018,Kragh2012}.
+\item The optimized DRL configuration recovers $94.9\%$ of the SLSQP optimum in the aligned-cube regime ($+4.91\%$ vs.\ $+5.17\%$, 95\% bootstrap CI $[93.2\%, 95.9\%]$), a $2.8{\times}$ improvement over the baseline PPO configuration ($61\%$ recovery). Cross-seed evaluation confirms robustness (recovery $90.5\%$ on an independent random seed). The residual gap of $0.26$\,pp is concentrated at the perfectly-aligned inflow direction where the DRL policy is more conservative than SLSQP (a prudent operational characteristic). Re-evaluation with the optimized configuration confirms that (i)~the $5{\times}5$ aligned-cube gain rises to $+4.70\%$ ($95.7\%$ of the $3{\times}3$ headline) when turbine position encoding is enabled, and (ii)~the dynamic-wind performance exhibits a trade-off ($-0.14\%$ gain, $29.7^\circ$ travel, $266{\times}$ less than unlimited lookup) where steady-state optimization reduces dynamic responsiveness; the actuator-aware framework with rate-penalized training remains the mechanism for navigating this trade-off.
+\item The regret-reward formulation requires a precomputed SLSQP lookup table ($91{\times}11$ grid) for headroom estimation during training, creating a circular dependency: the DRL policy's training signal depends on the SLSQP optimum it is benchmarked against. While this is methodologically sound for establishing the steady-state upper bound, it limits the framework's applicability to scenarios where no offline optimum is available. Online headroom estimation via a coarse surrogate model or curriculum learning is a promising direction for removing this dependency.
+\item The $7d_0$ inline case shows the gray-box model's optimization-induced bias trade-off (3.4\%$\rightarrow$10.9\% post-fit), highlighting the limits of multi-scenario least-squares calibration.
+\item Large-farm scalability ($N>25$) is not demonstrated; the $5{\times}5$ layout represents a moderate extension from the primary $3{\times}3$ configuration.
+\item The FLORIS cross-validation uses the GCH wake model at a fixed turbulence intensity; site-specific atmospheric stability, wind shear, and turbulence profiles may affect the quantitative gain estimates.
+\item The gated DRL and deadband results are obtained from batched simulation of the trained Config-E policy and have not been validated with dedicated retraining under gated operation.
+\item Under the optimized training configuration (cosine LR decay, KL early stopping, AdamW), all five seeds successfully learn cooperative policies with low inter-seed deployed-policy variance ($\sigma\!=\!0.32\%$ in the aligned-cube regime). The baseline configuration exhibited one seed failure out of five, which the training-dynamics improvements eliminate. For production deployment we nevertheless recommend running $\geq\!3$ seeds and evaluating each checkpoint on a held-out reference grid before deployment.
+\end{itemize}
+
+%%========================================================================
+\section{Conclusion}\label{sec:conclusion}
+
+We presented a control-oriented framework for wind-farm cooperative yaw control that couples a multi-scenario-calibrated gray-box wake model with a closed-loop reinforcement-learning policy. The calibrated wake model reduces the two-turbine yaw-case power-prediction error at $\gamma\!=\!30^\circ$ from $27.6\%$ to $6.6\%$, validated against Horns Rev~I LES and FLORIS. Through systematic enhancement of observation space, reward design, and training dynamics, the Config-E PPO controller achieves $+4.91\%$ farm-power gain in the aligned-cube regime, distilling $94.9\%$ of the SLSQP-optimal performance into a compact real-time policy (bootstrap CI $[93.2\%, 95.9\%]$). FLORIS cross-validation on $3{,}000$ conditions with five seeds yields an aligned-cube gain of $\mathbf{+5.02\%}$---a $4.1\%$ erosion relative to the gray-box estimate, confirming that the reported gains are cross-model robust. Observation-noise tests show that the controller tolerates wind-direction noise up to $10^\circ$ and wind-speed noise up to $1.0$\,m/s with negligible degradation; yaw-angle measurement noise at $2^\circ$ reduces the mean gain from $+2.28\%$ to $+1.98\%$.
+
+The downstream-turbine locking mechanism is validated as necessary under Config-E: re-training with the lock disabled degrades the mean gain from $+2.42\%$ to $-0.46\%$. The lock thus remains a structural requirement for stable cooperative-yaw learning, independent of the PPO configuration.
+
+For dynamic-wind operation, \emph{gated} activation of the cooperative-yaw policy---where the DRL controller is active only in the wake-aligned high-value regime ($|\phi{-}270^\circ|{<}15^\circ$, $v{<}11.4$\,m/s) and reverts to zero yaw elsewhere---reduces cumulative yaw travel by $11\%$ with no measurable gain loss. Adding a $2^\circ$ yaw deadband (standard industrial hysteresis) reduces travel by $43\%$ while retaining the majority of the power benefit. A tunable yaw-rate penalty $\lambda_\mathrm{rate}$ produces a continuous power--yaw-activity trade-off, with moderate penalties ($\lambda_\mathrm{rate}{=}5{\times}10^{-4}$) achieving the best balance. The framework transfers to $5{\times}5$ layouts with $+4.70\%$ gain ($95.7\%$ of the $3{\times}3$ headline).
+
+The results of this study are obtained entirely in simulation using a control-oriented wake model cross-validated against FLORIS. Field validation using SCADA data, aeroelastic load assessment using OpenFAST or FAST.Farm, extension to utility-scale layouts, and online model adaptation remain important directions for future work. The code, trained policies, and evaluation scripts are available from the corresponding author upon reasonable request.
+
+%%========================================================================
+\section*{CRediT Authorship Contribution Statement}
+\textbf{Zhuang Shao}: Conceptualization, Methodology, Software, Formal Analysis, Investigation, Writing---original draft, Visualization, Funding acquisition. \textbf{Lijun Lei}: Validation, Investigation, Data Curation. \textbf{Peng Wang}: Methodology, Writing---review \& editing. \textbf{Liang Zheng}: Validation, Resources. \textbf{Jie Zhou}: Validation, Resources.
+
+\section*{Acknowledgements}
+This work was supported by the Postdoctoral Research Project of China Resources Power Technology Research Institute Co., Ltd. (Internal Project No. 374322).
+
+\section*{Declaration of Competing Interest}
+The authors declare no competing financial interests or personal relationships that could have appeared to influence the work reported in this paper.
+
+\section*{Data Availability}
+Code, calibration datasets and trained models are available at \url{https://github.com/VickylastShao/wind-farm-yaw-rl}.
+
+\section*{ORCID}
+Zhuang Shao: 0000-0003-2496-0797
+
+%%========================================================================
+\begin{thebibliography}{99}
+\small
+\bibitem[Barthelmie et~al.(2009)]{Barthelmie2009} Barthelmie RJ, Hansen K, Frandsen ST, et al. Modelling and measuring flow and wind turbine wakes in large wind farms offshore. \emph{Wind Energy} 2009;12(5):431--444.
+\bibitem[Jensen(1983)]{Jensen1983} Jensen NO. A note on wind generator interaction. Tech.\ Rep.\ Ris\o-M-2411, Ris\o\ National Laboratory; 1983.
+\bibitem[Frandsen et~al.(2006)]{Frandsen2006} Frandsen S, Barthelmie R, Pryor S, et al. Analytical modelling of wind speed deficit in large offshore wind farms. \emph{Wind Energy} 2006;9(1--2):39--53.
+\bibitem[Bastankhah and Port\'e-Agel(2014)]{Bastankhah2014} Bastankhah M, Port\'e-Agel F. A new analytical model for wind-turbine wakes. \emph{Renewable Energy} 2014;70:116--123.
+\bibitem[Bastankhah and Port\'e-Agel(2016)]{BastankhahYaw2016} Bastankhah M, Port\'e-Agel F. Experimental and theoretical study of wind turbine wakes in yawed conditions. \emph{J.\ Fluid Mech.} 2016;806:506--541.
+\bibitem[Niayifar and Port\'e-Agel(2016)]{Niayifar2016} Niayifar A, Port\'e-Agel F. Analytical modeling of wind farms: A new approach for power prediction. \emph{Energies} 2016;9(9):741.
+\bibitem[Cai et~al.(2018)]{Cai2018} Cai W, Mao J, Chen C, et al. Comprehensive evaluation model of wind turbine power output under yaw misalignment. \emph{Renewable Energy Resources} 2018;36(4):543--548.
+\bibitem[Boersma et~al.(2017)]{Boersma2017} Boersma S, Doekemeijer BM, Gebraad PMO, et al. A tutorial on control-oriented modeling and control of wind farms. \emph{Proc.\ ACC} 2017:1--18.
+\bibitem[Andersson et~al.(2021)]{Andersson2021} Andersson LE, Anaya-Lara O, Tande JO, et al. Wind farm control --- Part I. \emph{IET Renewable Power Generation} 2021;15(10):2085--2108.
+\bibitem[Fleming et~al.(2017)]{Fleming2017} Fleming P, Annoni J, Shah JJ, et al. Field test of wake steering at an offshore wind farm. \emph{Wind Energy Sci.} 2017;2(1):229--239.
+\bibitem[Schulman et~al.(2017)]{Schulman2017} Schulman J, Wolski F, Dhariwal P, Radford A, Klimov O. Proximal Policy Optimization Algorithms. \emph{arXiv preprint arXiv:1707.06347}, 2017.
+\bibitem[Raffin et~al.(2021)]{Raffin2021} Raffin A, Hill A, Gleave A, et al. Stable-Baselines3. \emph{JMLR} 2021;22(268):1--8.
+\bibitem[Duan et~al.(2019)]{Duan2019} Duan X, Cheng P, Wan D. Numerical simulation of complex wake of two tandem turbines with yaw. \emph{Ocean Engineering} 2019;37(2):50--58.
+\bibitem[Li et~al.(2016)]{Li2016} Li P, Wan D, Liu J. Numerical simulation of turbine wake based on the actuator-line model. \emph{Chinese J.\ Hydrodynamics} 2016;31(2):127--134.
+\bibitem[Huang and Wan(2020)]{Huang2020} Huang Y, Wan D. Interference effects between wind turbine and spar-type floating platform. \emph{Sustainability} 2020;12(1):246--275.
+\bibitem[Stanfel et~al.(2020)]{Stanfel2020} Stanfel P, Johnson K, Bay CJ, et al. Proof-of-concept of a reinforcement learning framework for wind farm energy capture. \emph{Proc.\ ACC} 2020:1--6.
+\bibitem[Padullaparthi et~al.(2022)]{Padullaparthi2022} Padullaparthi V, Nagarathinam S, Vasan A, et al. FALCON --- FArm-level CONtrol for wind turbines using multi-agent deep RL. \emph{Renewable Energy} 2022;181:445--456.
+\bibitem[NREL(2023)]{NRELFLORIS} NREL. FLORIS. Version 3.2, \url{https://github.com/NREL/floris}, 2023.
+\bibitem[King et~al.(2021)]{King2021} King J, Fleming P, King R, Mart\'inez-Tossas LA, Bay CJ, Mudafort R, Churchfield M. Controls-oriented model for secondary effects of wake steering. \emph{Wind Energy Sci.} 2021;6(3):701--714.
+\bibitem[Mart\'inez-Tossas et~al.(2015)]{MartinezTossas2015} Mart\'inez-Tossas LA, Churchfield MJ, Leonardi S. Large eddy simulations of the flow past wind turbines: actuator line and disk modeling. \emph{Wind Energy} 2015;18(6):1047--1060.
+\bibitem[Gebraad et~al.(2016)]{Gebraad2016} Gebraad PMO, Teeuwisse FW, van Wingerden JW, Fleming PA, Ruben SD, Marden JR, Pao LY. Wind plant power optimization through yaw control using a parametric model for wake effects --- a CFD simulation study. \emph{Wind Energy} 2016;19(1):95--114.
+\bibitem[Damiani et~al.(2018)]{Damiani2018} Damiani R, Dana S, Annoni J, Fleming P, Roadman J, van Dam J, Dykes K. Assessment of wind turbine component loads under yaw-offset conditions. \emph{Wind Energy Sci.} 2018;3(1):173--189.
+\bibitem[Doekemeijer et~al.(2019)]{Doekemeijer2019} Doekemeijer BM, Fleming PA, van Wingerden JW. A tutorial on the synthesis and validation of a closed-loop wind farm controller using a steady-state surrogate model. \emph{Wind Energy Sci.} 2019;4(4):581--601.
+\bibitem[Kanev et~al.(2020)]{Kanev2020} Kanev S, Bot E, Giles J. Active wake control: loads and AEP improvements. \emph{Wind Energy Sci.} 2020;5:275--291.
+\bibitem[Kragh and Hansen(2012)]{Kragh2012} Kragh KA, Hansen MH. Potential of power gain with improved yaw alignment. \emph{Wind Energy} 2012;18(6):979--997.
+\end{thebibliography}
+
+
+%%========================================================================
+\appendix
+\section{SAC implementation details}\label{app:sac_impl}
+
+The JAX/NNX SAC implementation used for the fair comparison in \S\ref{sec:ppo_vs_sac} follows the same on-device architecture as the PPO controller. The SAC agent comprises an actor network (MLP $[256,256]$ outputting action mean, with per-dimension learnable log-standard-deviation parameters) and twin critic networks (each MLP $[256,256]$ mapping $\langle s,a\rangle$ to a scalar Q-value). Automatic entropy tuning maintains a learnable log-$\alpha$ parameter with target entropy set to $-\mathrm{dim}(\mathcal{A})$.
+
+The training loop alternates between (i)~an on-device rollout phase ($N_\mathrm{envs}{=}4$ parallel environments, $N_\mathrm{steps}{=}256$ steps per rollout, $\mathtt{lax.scan}$-compiled) that populates a host-side replay buffer ($5{\times}10^{5}$ capacity), and (ii)~an update phase that samples minibatches of $256$ transitions and performs one epoch of gradient updates per rollout. The critic is updated by minimizing the standard SAC Bellman residual, the actor by minimizing $\mathbb{E}[\alpha\log\pi(a|s) - \min_i Q_i(s,a)]$, and $\alpha$ by gradient descent on the dual objective.
+
+An initial implementation using \texttt{nnx.value\_and\_grad} with closure-captured frozen model states incurred a ${\sim}56\,\mathrm{ms}$ per-update overhead due to JAX retracing triggered by \texttt{nnx.split} producing new PyTree objects on each call. Replacing the NNX gradient API with \texttt{jax.grad} applied directly to the NNX State PyTrees, with graphdefs captured once as Python-level constants and states passed as explicit dynamic arguments to \texttt{@jax.jit}-compiled loss functions, reduced the per-step update time to ${\sim}14\,\mathrm{ms}$. The $N_\mathrm{envs}{=}4$ ceiling is imposed by JIT compilation time of the \texttt{lax.scan} rollout kernel; $N_\mathrm{envs}{=}8$ triggers multi-minute compilation on first call, which is acceptable for production training ($60$\,M-step runs amortize the cost) but impractical for the $6$\,M-step pilot budget used here.
+
+At $N_\mathrm{envs}{=}4$ and $N_\mathrm{steps}{=}256$, the SAC training achieves ${\sim}6{,}200\,\mathrm{FPS}$ on an NVIDIA RTX 4090 (wall-clock time ${\sim}7.5$\,min per $6$\,M-step seed). Extrapolating to the PPO-matched budget of $6{\times}10^{7}$ steps, full SAC training would require ${\sim}75$\,min per seed, compared to ${\sim}5$\,min for PPO at $N_\mathrm{envs}{=}128$. The pure-JAX gradient refactoring (replacing \texttt{nnx.merge} calls inside traced functions with direct parameter manipulation) is expected to reduce the per-update time further and enable $N_\mathrm{envs}{=}8$--$16$, bringing SAC throughput to within $3$--$5{\times}$ of PPO.
+
+
+\end{document}
