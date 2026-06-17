@@ -75,6 +75,10 @@ TARGET_KL = float(os.environ.get("TARGET_KL", "0.015"))
 LR_DECAY = os.environ.get("LR_DECAY", "0") == "1"
 LR_END = float(os.environ.get("LR_END", "3e-5"))
 LAMBDA_RATE = float(os.environ.get("LAMBDA_RATE", "0.0"))
+GATE_ON = os.environ.get("GATE_ON", "0") == "1"
+GATE_DPHI_IN = float(os.environ.get("GATE_DPHI_IN", "15.0"))
+GATE_DPHI_OUT = float(os.environ.get("GATE_DPHI_OUT", "20.0"))
+GATE_V_MAX = float(os.environ.get("GATE_V_MAX", "11.4"))
 WEIGHT_DECAY = float(os.environ.get("WEIGHT_DECAY", "1e-4"))
 GAMMA_DISC = float(os.environ.get("GAMMA_DISC", "0.995"))
 
@@ -192,6 +196,11 @@ def make_rollout_fn_dynamic(positions_j):
             action = mean + std * eps
             logp = gaussian_log_prob(mean, log_std, action)
             action_clipped = jnp.clip(action, ACT_LOW, ACT_HIGH)
+
+            # ── Gate logic: zero yaw outside aligned-cube regime ──
+            dphi = jnp.minimum(jnp.abs(state.phi - 270.0), 360.0 - jnp.abs(state.phi - 270.0))
+            in_gate = (dphi < GATE_DPHI_IN) & (state.v < GATE_V_MAX); in_gate = in_gate[:, None]
+            action_clipped = jnp.where(GATE_ON & (~in_gate), jnp.zeros_like(action_clipped), action_clipped)
 
             # ── Env step (randomize_wind=False: wind is already updated) ──
             reset_keys = jax.random.split(sub_reset, action.shape[0])

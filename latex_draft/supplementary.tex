@@ -1,5 +1,6 @@
 \documentclass{article}
-\usepackage{amsmath,amssymb,graphicx,booktabs,hyperref}
+\usepackage{amsmath,amssymb,graphicx,booktabs,hyperref,subcaption,float}
+\graphicspath{{figures/}}
 \begin{document}
 
 \title{Supporting Information: Cooperative Yaw Control for Wind Farm Power Maximization}
@@ -51,5 +52,114 @@ Early-stop trigger rate & $0.3\%$ & $0.0\%$ \\
 \end{table}
 
 The KL ON configuration achieves a modestly higher final episode reward ($+344.0$ vs.\ $+311.0$) with slightly lower inter-seed variance. The early-stop mechanism triggers on only $0.3\%$ of iterations under the default TARGET\_KL=0.015, confirming that it functions as a safety valve rather than a primary regularization mechanism under Config-D. The near-zero trigger rate explains why the mean KL divergence is identical between the two configurations: the KL threshold is rarely exceeded, so the training trajectories are nearly indistinguishable. Cosine learning-rate decay and AdamW weight decay are therefore the dominant contributors to Config-D's improved training stability, with KL early-stopping providing a marginal additional safeguard.
+
+\section{Supplementary Figures}
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.85\linewidth]{fig_methods_comparison}
+\caption{Schematic comparison of representative wind-farm cooperative yaw control paradigms.}
+\label{fig:methods}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_lock_ablation_eval}
+\caption{Lock-mask ablation under Config-E on the $3\!\times\!3$ layout, three seeds. Mean regret-reward gain over $200$ uniformly sampled wind conditions: $\mathbf{+2.42\%}$ (\textsc{lock\_on}) vs.\ $\mathbf{-0.46\%}$ (\textsc{lock\_off}), with negative-gain fractions of $18\%$ and $28\%$ respectively. Locking remains structurally necessary under the optimized configuration.}
+\label{fig:lock_ablation}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_nnx_vs_sb3}
+\caption{Wall-clock A/B benchmark on the $3\!\times\!3$ PPO training loop. SB3-PyTorch on CPU/CUDA, NNX-JAX on CPU/CUDA with the NumPy environment, and the fully on-device NNX+JAX-Env stack are compared at matched total environment steps. Throughput jumps by $\sim$$30\!\times$ only once the environment itself is ported to JAX --- swapping the policy backend alone is throughput-neutral because the NumPy environment occupies $86\%$ of wall-clock and the host$\leftrightarrow$device boundary cancels the GPU's compute savings.}
+\label{fig:nnx_vs_sb3}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_xval_jaxenv_policy_gain}
+\caption{Numerical cross-validation of the on-device JAX environment against the original NumPy gym. A single short-budget ($5\!\times\!10^{6}$ steps) reference policy is evaluated on a $19$-point $(\phi,v)$ grid inside both environments. The two implementations agree on sign, rank ordering and the location of the peak gain, supporting the use of the on-device stack for accelerated training without loss of physical fidelity.}
+\label{fig:xval_env}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{fig_3turbine_layout}\caption{Three-turbine inline.}\label{fig:3t}\end{subfigure}\hfill
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{fig_large_farm_layout}\caption{Large 35-turbine farm.}\label{fig:largefarm}\end{subfigure}\hfill
+\begin{subfigure}{0.32\linewidth}\includegraphics[width=\linewidth]{fig_2turbine_layout}\caption{Two-turbine yaw.}\label{fig:2t}\end{subfigure}
+\caption{Calibration CFD reference datasets.}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}{0.48\linewidth}\includegraphics[width=\linewidth]{fig_hornsrev_layout}\caption{Horns Rev layout.}\label{fig:hr_layout}\end{subfigure}\hfill
+\begin{subfigure}{0.48\linewidth}\includegraphics[width=\linewidth]{fig_v80_power_curve}\caption{Predicted V-80 power curve.}\label{fig:v80}\end{subfigure}
+\caption{Horns Rev calibration assets.}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}{0.49\linewidth}\includegraphics[width=\linewidth]{fig_floris_hornsrev_compare}\caption{$3\!\times\!3$ NREL-5MW direction sweep, $\gamma\!=\!0$, $U_\infty\!=\!11.4\,\mathrm{m/s}$.}\label{fig:floris_sweep}\end{subfigure}\hfill
+\begin{subfigure}{0.49\linewidth}\includegraphics[width=\linewidth]{fig_floris_yaw_sweep}\caption{Two-turbine yaw sweep, $\gamma\!\in\![0^\circ,50^\circ]$.}\label{fig:floris_yaw}\end{subfigure}
+\caption{Cross-validation of the proposed gray-box wake model against FLORIS. (a) Direction-by-direction farm power on the $3\!\times\!3$ NREL-5MW grid. (b) Two-turbine yaw sweep capturing the yaw-deflection regime exploited by the closed-loop controller.}
+\label{fig:floris_xval}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}{0.48\linewidth}\includegraphics[width=\linewidth]{fig_1x2_training_curve}\caption{Training curve.}\label{fig:1x2_train}\end{subfigure}\hfill
+\begin{subfigure}{0.48\linewidth}\includegraphics[width=\linewidth]{fig_1x2_optimization_rate}\caption{Wind-rose optimization rate.}\label{fig:1x2_opt}\end{subfigure}
+\caption{$1{\times}2$ inline farm: PPO training and full wind-rose performance.}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.7\linewidth]{fig_3x3_optimization_rate}
+\caption{Full wind-rose optimization rate for the $3{\times}3$ layout, LCB-selected PPO policy.}
+\label{fig:3x3_opt}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_yaw_rose}
+\caption{Learned yaw angles across the wind rose for the $3{\times}3$ layout (seed~0), shown at $v\!=\!8\,\mathrm{m/s}$ (top) and $v\!=\!11.4\,\mathrm{m/s}$ (bottom). Cooperative yaw deflection is active only within the column-aligned band $|\phi\!-\!270^\circ|\!<\!15^\circ$ (shaded); outside this band the policy correctly reverts to near-zero yaw. Crosses mark turbines identified as downstream by the locking mechanism.}
+\label{fig:yaw_rose}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_drl_vs_slsqp_yaw_comparison}
+\caption{Per-turbine yaw angle comparison between the DRL policy (\textsc{Config-E}, seed~1) and the SLSQP optimum across the aligned-cube wind regime ($\phi\!\in\![255^\circ,285^\circ]$, $v\!\in\!\{7,9,11\}\,\mathrm{m/s}$). The DRL policy closely matches SLSQP at off-axis directions (mean $|\Delta|\!=\!1.6^\circ$) but is systematically more conservative at the perfectly-aligned condition $\phi\!=\!270^\circ$ (mean $|\Delta|\!=\!17.1^\circ$), explaining the residual $0.26$\,pp recovery gap.}
+\label{fig:drl_vs_slsqp_yaw}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_inference_latency}
+\caption{Measured single-CPU-core inference latency (MLP forward pass only, excluding sensor/communication/actuator latencies) of the trained PyTorch policy over $3000$ random observations per layout. Median (p50) latency is $0.114$/$0.116$/$0.172\,\mathrm{ms}$ for $N\!=\!2$/$9$/$25$; p95 stays below $0.20\,\mathrm{ms}$ across all layouts. Latency is approximately flat in $N$ within the hidden-width regime used here.}
+\label{fig:infer_lat}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig_reward_penalty_ablation.pdf}
+\caption{\textbf{Reward-penalty ablation on the $3{\times}3$ layout.}
+Single-panel episode-return learning curves (mean $\pm$ min/max envelope over $3$ seeds,
+$3\!\times\!10^{7}$ environment steps each).
+Adding $P_\mathrm{mag}+P_\mathrm{rate}$ with
+$\lambda_\mathrm{mag}=\lambda_\mathrm{rate}=8\!\times\!10^{-5}$
+depresses the final-$10$-iteration return from $+19.79$ to $+15.78$
+($-20\%$ relative) and lowers the best-seed peak from $+28.1$ to $+22.3$.
+Per-seed final returns and per-group entropy diagnostics are saved in
+\texttt{reward\_penalty\_ablation.json}.}
+\label{fig:reward_ablation}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.95\linewidth]{fig_obs_noise_robustness}
+\caption{Observation noise robustness. (a)~Gain vs.\ wind-direction noise $\sigma_\phi$. (b)~Gain vs.\ wind-speed noise $\sigma_v$. (c)~2D heatmap of aligned-cube gain as a function of $(\sigma_\phi,\sigma_v)$. The controller tolerates $\sigma_\phi\!=\!10^\circ$ with $<\!1\%$ relative gain erosion.}
+\label{fig:noise_robustness}
+\end{figure}
 
 \end{document}
