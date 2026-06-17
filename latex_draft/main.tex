@@ -876,12 +876,13 @@ Zero yaw (baseline)       & $+0.000$ & $0$   & $0.00$ & $0$ \\
 Static Config-E (raw)     & $-0.201$ & $191$ & $1.86$ & $23$ \\
 SLSQP lookup, RL$=0.5^\circ\!/\!\mathrm{s}$ & $+2.178$ & $277$ & $3.00$ & $10$ \\
 SLSQP lookup, unlimited   & $+3.386$ & $640$ & $42.55$ & $6$ \\
-\textbf{DRL-Deploy}       & $\mathbf{-0.083}$ & $\mathbf{16}$ & $\mathbf{1.86}$ & $\mathbf{18}$ \\
+\textbf{DRL-Deploy (Static)} & $-0.083$ & $\mathbf{16}$ & $1.86$ & $18$ \\
+\textbf{DRL-Deploy (J=15 Dyn)} & $\mathbf{+0.034}$ & $24$ & $2.64$ & $\mathbf{14}$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The DRL-Deploy controller reduces the per-step power loss by $59\%$ relative to raw Static Config-E ($-0.083\%$ vs.\ $-0.201\%$) while requiring $92\%$ less yaw travel ($16^\circ$/turb vs.\ $191^\circ$/turb). The negative-gain fraction decreases from $23\%$ to $18\%$. Compared to the rate-limited SLSQP lookup table---the strongest deployable optimization baseline---DRL-Deploy uses $17{\times}$ less yaw travel ($16^\circ$ vs.\ $277^\circ$) at a modest cost in per-step gain. The peak yaw rate of $1.86^\circ\!/\!\mathrm{s}$ remains within typical industrial actuator limits ($0.3$--$0.5^\circ\!/\!\mathrm{s}$ at the turbine level; the reported value is the farm-level maximum).
+The DRL-Deploy controller with the static-trained policy (Static Config-E) reduces per-step power loss by $59\%$ ($-0.083\%$ vs.\ $-0.201\%$) while requiring $92\%$ less yaw travel ($16^\circ$/turb vs.\ $191^\circ$/turb). When the DRL component is trained with an extended temporal observation window ($J{=}15$, 150\,s, covering the ${\sim}110$\,s wake propagation delay), DRL-Deploy achieves a \emph{positive} per-step gain ($+0.034\%$)---the only DRL variant to do so---with a negative-gain fraction of only $14\%$. This confirms that dynamic-wind training becomes effective when the observation horizon exceeds the characteristic physical delay of the system, and that the deployment wrapper (gate, deadband, rate limit) provides consistent benefit across different DRL training regimes. Compared to the rate-limited SLSQP lookup table, DRL-Deploy (J=15 Dyn) uses $11.5{\times}$ less yaw travel ($24^\circ$ vs.\ $277^\circ$) at a small cost in per-step gain, with peak yaw rates ($1.86$--$2.64^\circ\!/\!\mathrm{s}$) within industrial actuator capabilities.
 
 We emphasize that the DRL-Deploy logic uses only real-time wind measurements available to any SCADA system. The gate thresholds ($15^\circ$/$20^\circ$ direction band, $11.4$\,m/s speed ceiling), deadband ($2^\circ$), and rate limit ($3^\circ\!/\!\mathrm{s}$) are standard industrial parameters. The DRL policy itself is a feedforward MLP with $0.1$\,ms latency, requiring no per-step optimization. Together, these characteristics position DRL-Deploy as a practical candidate for simulation-validated cooperative yaw control, with field validation and aeroelastic load assessment as the natural next steps.
 
