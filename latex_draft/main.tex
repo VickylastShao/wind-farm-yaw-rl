@@ -577,16 +577,17 @@ Numerical optim. & sec--min & Required (full re-solve) & None (offline) & Modera
 %%========================================================================
 \section{Discussion}\label{sec:discussion}
 
-\subsection{Reward design: action penalties as a yaw-activity management tool}\label{sec:reward_ablation}
+\subsection{Reward design: action penalties expose the power--yaw-activity trade-off}\label{sec:reward_ablation}
 A natural attempt to stabilize the post-breakthrough oscillation in
 Fig.~\ref{fig:3x3_train_p0c} is to add an action-magnitude penalty
 $P_\mathrm{mag}=\lambda_\mathrm{mag}\sum_i\gamma_i^2$ and a rate-of-change
 penalty $P_\mathrm{rate}=\lambda_\mathrm{rate}\sum_i(\Delta\gamma_i)^2$
-to Eq.~\eqref{eq:reward}. We first analyze the negative effect of such
-penalties on power-oriented training, then show that the rate-of-change
-penalty---when applied independently and at higher strength---becomes a
-principled yaw-activity management tool that is central to the dynamic-wind
-advantage demonstrated in \S\ref{sec:dynamic_wind}.
+to Eq.~\eqref{eq:reward}. We analyze the effect of these penalties on
+training dynamics and show that, while rate penalties help expose the
+power--yaw-activity trade-off, they are insufficient alone for
+deployment-oriented control; the supervisory wrapper (DRL-Deploy,
+\S\ref{sec:deploy}) and sufficient temporal context ($J{=}15$) are
+required to achieve actuator-compatible behavior with positive gain.
 
 \paragraph{Combined penalties hurt peak power performance.}
 We calibrated
@@ -619,25 +620,24 @@ with LCB-based checkpoint selection} (Algorithm~\ref{alg:ppo}), which
 decouples performance from training-time stability without paying the
 penalty's policy-suppression cost. We note that the no-penalty baseline ($+19.79$) was established with $n{=}3$ seeds; the five-seed baseline of Sec.~\ref{sec:3x3_results} has a much wider inter-seed spread ($+18.86\!\pm\!18.09$, with one seed at $-5.38$), placing the $\sim\!4$-unit return difference between the penalized and unpenalized conditions within the seed-noise envelope. The more robust signal is therefore the \emph{best-seed peak collapse} ($+28.1\!\to\!+22.3$), which is less sensitive to inter-seed variance.
 
-\paragraph{Rate-only penalties enable actuator-aware control.}
+\paragraph{Rate penalties expose the power--yaw-activity trade-off.}
 The analysis above applies to the \emph{combined} magnitude+rate penalty.
-However, the two penalties serve fundamentally different purposes:
-$P_\mathrm{mag}$ discourages yaw \emph{magnitudes}, suppressing the
-cooperative strategy itself; $P_\mathrm{rate}$ discourages yaw
-\emph{changes}, suppressing actuator activity without preventing the policy
-from maintaining large steady-state yaw angles. By setting
-$\lambda_\mathrm{mag}\!=\!0$ and increasing $\lambda_\mathrm{rate}$ to
-$5{\times}10^{-4}$, $2{\times}10^{-3}$, and $10^{-2}$, we obtain three
-\emph{actuator-aware} DRL policies (\textsc{rate\_med}, \textsc{rate\_high},
-\textsc{rate\_extreme}) that explicitly trade off power gain against yaw
-travel. As shown in \S\ref{sec:dynamic_wind}, even the strongest
-rate-only penalty ($\lambda_\mathrm{rate}\!=\!10^{-2}$) does not cause the
-breakthrough-peak collapse observed with the combined penalty, because the
-policy retains the freedom to maintain large yaw angles---it merely changes
-them more gradually. The rate-only penalty thus transforms the ``action
-penalties hurt'' negative result into a \emph{actuator-awareness feature}:
-operators can tune $\lambda_\mathrm{rate}$ to site-specific actuator
-constraints without sacrificing the cooperative-yaw strategy.
+However, the two penalties serve different purposes: $P_\mathrm{mag}$
+suppresses the cooperative strategy itself, while $P_\mathrm{rate}$
+discourages yaw \emph{changes} without preventing large steady-state yaw
+angles. By setting $\lambda_\mathrm{mag}\!=\!0$ and increasing
+$\lambda_\mathrm{rate}$ to $5{\times}10^{-4}$, $2{\times}10^{-3}$, and
+$10^{-2}$, we obtain three policies that explicitly trade off power gain
+against yaw travel. Even the strongest rate-only penalty
+($\lambda_\mathrm{rate}\!=\!10^{-2}$) avoids the breakthrough-peak collapse
+observed with the combined penalty. Rate penalties are therefore a useful
+diagnostic tool for characterising the power--yaw-activity trade-off, but
+as the dynamic-wind results of \S\ref{sec:dynamic_wind} demonstrate, they
+do not alone close the deployment gap: rate-penalized policies remain
+negative in per-step gain ($-0.87\%$/step at $\lambda_\mathrm{rate}{=}5{\times}10^{-4}$,
+Table~\ref{tab:deploy}), and both extended temporal context ($J{=}15$) and
+the DRL-Deploy supervisory wrapper (\S\ref{sec:deploy}) are required to
+achieve positive gain with actuator-compatible travel.
 
 % [Moved to Supplementary]
 
