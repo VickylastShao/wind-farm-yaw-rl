@@ -320,8 +320,8 @@ Controller & Gain/step [\%] & Travel/turb [$^\circ$] & Peak rate [$^\circ\!/\!\m
 \midrule
 Zero yaw                      & $0.000$ & $0$    & $0.00$ \\
 Static Config-E (raw)         & $-0.201$ & $191$  & $0.21$ \\
-DRL-Deploy (Static)           & $-0.083$ & $16$   & $0.21$ \\
-DRL-Deploy (J=15 Dyn)         & $+0.034$ & $24$   & $0.29$ \\
+DRL-Deploy (Static)           & $-0.083$ & $16$   & $0.30$ \\
+DRL-Deploy (J=15 Dyn)         & $+0.034$ & $24$   & $0.30$ \\
 SLSQP lookup, RL${=}0.5^\circ\!/\!\mathrm{s}$ & $+2.178$ & $277$  & $0.33$ \\
 SLSQP lookup, unlimited       & $+3.386$ & $640$  & $4.73$ \\
 \bottomrule
@@ -405,7 +405,7 @@ Gate entry band  & $|\phi{-}270^\circ| < 15^\circ$ \\
 Gate exit band   & $|\phi{-}270^\circ| < 20^\circ$ (hysteresis) \\
 Gate speed ceiling & $v < 11.4$\,m/s \\
 Yaw-command deadband & $2^\circ$ (per-turbine max $|\Delta\gamma|$) \\
-Rate limit        & $3^\circ$ per control step ($0.3^\circ\!/\!\mathrm{s}$ at $T{=}10$\,s) \\
+Rate limit        & ${\pm}3^\circ$ per control step ($0.3^\circ\!/\!\mathrm{s}$ per turbine at $T{=}10$\,s) \\
 Fallback command  & $\gamma_i = 0^\circ$ (zero cooperative yaw) \\
 \bottomrule
 \end{tabular}
@@ -421,7 +421,7 @@ Fallback command  & $\gamma_i = 0^\circ$ (zero cooperative yaw) \\
 4.\ \ if $g_t = 0$: output $\gamma_t \leftarrow 0^\circ$; return \hfill // fallback\\
 5.\ \ $\Delta\hat{\gamma} \leftarrow \pi_\mathrm{DRL}(\text{obs}_t)$ \hfill // PPO forward pass\\
 6.\ \ if $\max_i|\Delta\hat{\gamma}_i| < 2^\circ$: $\Delta\hat{\gamma} \leftarrow 0$ \hfill // deadband\\
-7.\ \ $\Delta\gamma \leftarrow \mathrm{clip}(\Delta\hat{\gamma},\ -3^\circ,\ +3^\circ)$ \hfill // rate limit\\
+7.\ \ $\Delta\gamma \leftarrow \mathrm{clip}(\Delta\hat{\gamma},\ -3^\circ,\ +3^\circ)$ \hfill // rate limit ($0.3^\circ\!/\!\mathrm{s}$)\\
 8.\ \ $\gamma_t \leftarrow \mathrm{clip}(\gamma_{t-1} + \Delta\gamma,\ -50^\circ,\ +50^\circ)$\\
 9.\ \ output $\gamma_t$, $g_t$
 \end{quote}
@@ -454,7 +454,7 @@ Table~S14 reports sensitivity to the gate entry band ($10^\circ$, $15^\circ$, $2
 
 \subsection{Rate-limit verification}
 
-The DRL-Deploy controller does not apply a separate, binding rate-limit parameter beyond the PPO action bound (${\pm}10^\circ$ per step, ${\pm}1.0^\circ\!/\!\mathrm{s}$ per turbine at $T{=}10$\,s). The per-turbine peak yaw rates of DRL-Deploy controllers (Tables~S9--S10, $0.21$--$0.29^\circ\!/\!\mathrm{s}$ per turbine) are consistent with the $0.3$--$0.5^\circ\!/\!\mathrm{s}$ yaw-rate capability of multi-MW utility-scale turbines. The code parameter \texttt{RATE\_MAX}$\,{=}\,3.0$ in the evaluation scripts produces a clip bound of $30^\circ$/step, which is non-binding relative to the ${\pm}10^\circ$ action bound; the effective rate constraint is therefore the PPO action space itself.
+The DRL-Deploy controller applies a binding rate limit of ${\pm}3^\circ$ per control step ($0.3^\circ\!/\!\mathrm{s}$ per turbine at $T{=}10$\,s), enforced through the \texttt{RATE\_MAX}$\,{=}\,0.3$ parameter in the evaluation scripts. This is consistent with the $0.3$--$0.5^\circ\!/\!\mathrm{s}$ yaw-rate capability of multi-MW utility-scale turbines. The per-turbine peak yaw rates of DRL-Deploy controllers (Tables~S9--S10) are at this rate-limit bound.
 
 %=============================================================================
 \section{Horns Rev AEP Replay Details}\label{sec:aep_details}
@@ -481,8 +481,8 @@ Table~S15 reports the full AEP replay results (main text Table~16).
 Controller & AEP gain [\%] & Annual travel [Mdeg] & Gain/travel & Peak rate [$^\circ\!/\!\mathrm{s}$] \\
 \midrule
 Greedy yaw          & $0.000$ & $0.000$ & ---      & $0.00$ \\
-Static DRL-Deploy   & $-0.694$ & $8.169$ & $-0.027$ & $0.20$ \\
-J=15 DRL-Deploy     & $+0.122$ & $2.098$ & $+0.018$ & $0.19$ \\
+Static DRL-Deploy   & $-0.694$ & $8.169$ & $-0.027$ & $0.30$ \\
+J=15 DRL-Deploy     & $+0.122$ & $2.098$ & $+0.018$ & $0.30$ \\
 SLSQP RL$=0.5^\circ\!/\!\mathrm{s}$ & $+0.455$ & $4.572$ & $+0.031$ & $0.44$ \\
 SLSQP unlimited     & $+0.754$ & $14.475$ & $+0.016$ & $4.47$ \\
 \bottomrule

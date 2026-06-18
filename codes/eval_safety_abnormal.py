@@ -50,7 +50,7 @@ from windfarm_env import create_wind_farm_layout_3x3, U_infinity
 # ═══════════════════════════════════════════════════════════════════════════
 CKPT_DIR = "checkpoints_3x3_nnx_jaxenv"
 N = 9; AB = 10.0; T_STEP = 10.0
-GATE_IN = 15.0; GATE_OUT = 20.0; DEADBAND = 2.0; RATE_MAX = 3.0
+GATE_IN = 15.0; GATE_OUT = 20.0; DEADBAND = 2.0; RATE_MAX = 0.3  # 3°/step = 0.3°/s at T=10s
 OBS_J3 = 144; OBS_J15 = 720
 N_TEST = 500  # conditions per scenario
 SETTLE = 10

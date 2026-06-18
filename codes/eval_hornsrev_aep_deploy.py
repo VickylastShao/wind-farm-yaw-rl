@@ -22,7 +22,7 @@ from windfarm_env import create_wind_farm_layout_3x3, U_infinity
 # ── Config ──────────────────────────────────────────────────────────────────
 CKPT_DIR = "checkpoints_3x3_nnx_jaxenv"
 N=9; AB=10.0; T_STEP=10.0
-GATE_IN=15.0; GATE_OUT=20.0; DEADBAND=2.0; RATE_MAX=3.0
+GATE_IN=15.0; GATE_OUT=20.0; DEADBAND=2.0; RATE_MAX=0.3  # 3°/step = 0.3°/s at T=10s
 SLSQP_RATE=0.5
 WEIBULL_K=2.1; WEIBULL_A=10.5; VM_MU=270.0; VM_KAPPA=2.0
 FARM_MW=500.0; CF=0.45
