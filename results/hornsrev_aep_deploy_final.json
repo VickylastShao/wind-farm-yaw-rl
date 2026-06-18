@@ -1,0 +1,230 @@
+{
+  "description": "Horns Rev AEP replay \u2014 vmap-accelerated",
+  "wind_rose": {
+    "source": "Horns Rev 1 (Barthelmie 2009)",
+    "weibull_k": 2.1,
+    "weibull_A": 10.5,
+    "vm_mu": 270.0,
+    "vm_kappa": 2.0,
+    "mean_ws": 9.39648151397705,
+    "ac_prob": 0.091,
+    "na_prob": 0.176,
+    "farm_mw": 500.0,
+    "cf": 0.45,
+    "baseline_aep_mwh": 1971000.0
+  },
+  "deploy": {
+    "gate_in": 15.0,
+    "gate_out": 20.0,
+    "deadband": 2.0,
+    "rate_max": 3.0,
+    "slsqp_rate": 0.5,
+    "t_step": 10.0,
+    "settle": 10
+  },
+  "controllers": {
+    "Greedy yaw": {
+      "aep_gain_pct": 0.0,
+      "aep_gain_mwh_per_yr": 0.0,
+      "annual_travel_mdeg": 0.0,
+      "mean_travel_per_cond_deg": 0.0,
+      "peak_rate_deg_per_s": 0.0,
+      "neg_frac": 0.0,
+      "gain_per_travel": Infinity,
+      "load_proxy_B": 0.0,
+      "load_proxy_C": 0.0
+    },
+    "Static DRL-Deploy": {
+      "aep_gain_pct": -0.694309651851654,
+      "aep_gain_mwh_per_yr": -13684.843237996101,
+      "annual_travel_mdeg": 8.168555906982421,
+      "mean_travel_per_cond_deg": 25.902320861816406,
+      "peak_rate_deg_per_s": 1.7781175374984741,
+      "neg_frac": 0.1594,
+      "gain_per_travel": -0.026804920504521778,
+      "load_proxy_B": 18418440.0,
+      "load_proxy_C": 129511.6015625,
+      "seed_gains": [
+        -0.694309651851654,
+        -0.35411885380744934,
+        -0.8136484622955322,
+        -0.5349807143211365,
+        -0.5753218531608582
+      ],
+      "seed_travels": [
+        25.902320861816406,
+        18.73554039001465,
+        24.39630699157715,
+        24.299203872680664,
+        22.416677474975586
+      ],
+      "eval_time_s": 2.354417562484741
+    },
+    "J=15 DRL-Deploy": {
+      "aep_gain_pct": 0.12242206931114197,
+      "aep_gain_mwh_per_yr": 2412.938986122608,
+      "annual_travel_mdeg": 2.0982683866882326,
+      "mean_travel_per_cond_deg": 6.653565406799316,
+      "peak_rate_deg_per_s": 1.704281210899353,
+      "neg_frac": 0.087,
+      "gain_per_travel": 0.018399468802402313,
+      "load_proxy_B": 3435435.25,
+      "load_proxy_C": 33267.828125,
+      "seed_gains": [
+        0.12242206931114197,
+        0.024788305163383484,
+        0.068753682076931
+      ],
+      "seed_travels": [
+        6.653565406799316,
+        9.843034744262695,
+        19.0628719329834
+      ],
+      "eval_time_s": 1.566781759262085
+    },
+    "SLSQP RL=0.5\u00b0/s": {
+      "aep_gain_pct": 0.45498743653297424,
+      "aep_gain_mwh_per_yr": 8967.802374064922,
+      "annual_travel_mdeg": 4.572240302581787,
+      "mean_travel_per_cond_deg": 14.498478889465332,
+      "peak_rate_deg_per_s": 4.000004291534424,
+      "neg_frac": 0.193,
+      "gain_per_travel": 0.03138173595229725,
+      "load_proxy_B": 671838.375,
+      "load_proxy_C": 28996.95703125,
+      "eval_time_s": 8.60375165939331,
+      "rate_limit": 0.5
+    },
+    "SLSQP Unlimited": {
+      "aep_gain_pct": 0.754446268081665,
+      "aep_gain_mwh_per_yr": 14870.135943889618,
+      "annual_travel_mdeg": 14.475228991699218,
+      "mean_travel_per_cond_deg": 45.90065002441406,
+      "peak_rate_deg_per_s": 40.234901428222656,
+      "neg_frac": 0.171,
+      "gain_per_travel": 0.016436505093414103,
+      "load_proxy_B": 10923154.0,
+      "load_proxy_C": 91801.296875,
+      "eval_time_s": 8.21135139465332
+    }
+  },
+  "sensitivity": {
+    "kappa_1.0": {
+      "aep_gain_pct": -0.5194059014320374,
+      "aep_gain_mwh_per_yr": -10237.490317225456,
+      "annual_travel_mdeg": 5.612954828796386,
+      "mean_travel_per_cond_deg": 17.79856300354004,
+      "peak_rate_deg_per_s": 1.777644395828247,
+      "neg_frac": 0.13,
+      "gain_per_travel": -0.029182462709877514,
+      "load_proxy_B": 5085541.0,
+      "load_proxy_C": 35597.125,
+      "kappa": 1.0,
+      "ac_prob": 0.0615
+    },
+    "kappa_2.0": {
+      "aep_gain_pct": -0.6715894341468811,
+      "aep_gain_mwh_per_yr": -13237.027747035027,
+      "annual_travel_mdeg": 7.646062261047363,
+      "mean_travel_per_cond_deg": 24.24550437927246,
+      "peak_rate_deg_per_s": 1.7778692245483398,
+      "neg_frac": 0.1505,
+      "gain_per_travel": -0.02769954476360694,
+      "load_proxy_B": 6813837.0,
+      "load_proxy_C": 48491.0078125,
+      "kappa": 2.0,
+      "ac_prob": 0.0905
+    },
+    "kappa_4.0": {
+      "aep_gain_pct": -1.1186717748641968,
+      "aep_gain_mwh_per_yr": -22049.02068257332,
+      "annual_travel_mdeg": 10.775878291625977,
+      "mean_travel_per_cond_deg": 34.17008590698242,
+      "peak_rate_deg_per_s": 1.7775630950927734,
+      "neg_frac": 0.2025,
+      "gain_per_travel": -0.03273833661355298,
+      "load_proxy_B": 9519432.0,
+      "load_proxy_C": 68340.171875,
+      "kappa": 4.0,
+      "ac_prob": 0.1275
+    },
+    "kappa_8.0": {
+      "aep_gain_pct": -1.5867283344268799,
+      "aep_gain_mwh_per_yr": -31274.415471553806,
+      "annual_travel_mdeg": 15.271764900512695,
+      "mean_travel_per_cond_deg": 48.426448822021484,
+      "peak_rate_deg_per_s": 1.777734398841858,
+      "neg_frac": 0.2385,
+      "gain_per_travel": -0.03276573799435139,
+      "load_proxy_B": 13568780.0,
+      "load_proxy_C": 96852.8984375,
+      "kappa": 8.0,
+      "ac_prob": 0.191
+    },
+    "bias_-5": {
+      "aep_gain_pct": -0.6995583176612854,
+      "aep_gain_mwh_per_yr": -13788.294441103935,
+      "annual_travel_mdeg": 7.281422449035644,
+      "mean_travel_per_cond_deg": 23.0892391204834,
+      "peak_rate_deg_per_s": 1.7770601511001587,
+      "neg_frac": 0.1465,
+      "gain_per_travel": -0.03029802384166478,
+      "load_proxy_B": 6470991.0,
+      "load_proxy_C": 46178.4765625,
+      "bias_deg": -5,
+      "ac_prob": 0.0905
+    },
+    "bias_-2": {
+      "aep_gain_pct": -0.5502832531929016,
+      "aep_gain_mwh_per_yr": -10846.08292043209,
+      "annual_travel_mdeg": 7.351052258605957,
+      "mean_travel_per_cond_deg": 23.310033798217773,
+      "peak_rate_deg_per_s": 1.7764358520507812,
+      "neg_frac": 0.147,
+      "gain_per_travel": -0.023607140929967397,
+      "load_proxy_B": 6522366.0,
+      "load_proxy_C": 46620.06640625,
+      "bias_deg": -2,
+      "ac_prob": 0.0905
+    },
+    "bias_+0": {
+      "aep_gain_pct": -0.6715894341468811,
+      "aep_gain_mwh_per_yr": -13237.027747035027,
+      "annual_travel_mdeg": 7.646062261047363,
+      "mean_travel_per_cond_deg": 24.24550437927246,
+      "peak_rate_deg_per_s": 1.7778692245483398,
+      "neg_frac": 0.1505,
+      "gain_per_travel": -0.02769954476360694,
+      "load_proxy_B": 6813837.0,
+      "load_proxy_C": 48491.0078125,
+      "bias_deg": 0,
+      "ac_prob": 0.0905
+    },
+    "bias_+2": {
+      "aep_gain_pct": -0.7024736404418945,
+      "aep_gain_mwh_per_yr": -13845.755453109741,
+      "annual_travel_mdeg": 7.721780468444824,
+      "mean_travel_per_cond_deg": 24.485605239868164,
+      "peak_rate_deg_per_s": 1.7769161462783813,
+      "neg_frac": 0.1475,
+      "gain_per_travel": -0.028689249592704136,
+      "load_proxy_B": 6915257.0,
+      "load_proxy_C": 48971.2109375,
+      "bias_deg": 2,
+      "ac_prob": 0.0905
+    },
+    "bias_+5": {
+      "aep_gain_pct": -0.7540833950042725,
+      "aep_gain_mwh_per_yr": -14862.98371553421,
+      "annual_travel_mdeg": 7.578143723144532,
+      "mean_travel_per_cond_deg": 24.030136108398438,
+      "peak_rate_deg_per_s": 1.7782249450683594,
+      "neg_frac": 0.1605,
+      "gain_per_travel": -0.0313807375575753,
+      "load_proxy_B": 6760262.0,
+      "load_proxy_C": 48060.2734375,
+      "bias_deg": 5,
+      "ac_prob": 0.0905
+    }
+  }
+}

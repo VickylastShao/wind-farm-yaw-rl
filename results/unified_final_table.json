@@ -1,0 +1,60 @@
+{
+  "protocol_B": [
+    {
+      "controller": "Zero yaw",
+      "gain": 0.0,
+      "travel": 0,
+      "peak": 0.0,
+      "neg": 0.0
+    },
+    {
+      "controller": "Greedy yaw tracking",
+      "gain": 0.0,
+      "travel": 0,
+      "peak": 0.0,
+      "neg": 0.0
+    },
+    {
+      "controller": "Static Config-E (raw)",
+      "gain": -0.201,
+      "travel": 191,
+      "peak": 1.86,
+      "neg": 0.23
+    },
+    {
+      "controller": "Static + Deploy wrapper",
+      "gain": -0.083,
+      "travel": 16,
+      "peak": 1.86,
+      "neg": 0.18
+    },
+    {
+      "controller": "Dynamic J=15 (raw)",
+      "gain": -0.205,
+      "travel": 270,
+      "peak": 2.67,
+      "neg": 0.22
+    },
+    {
+      "controller": "Dynamic J=15 + Deploy",
+      "gain": 0.034,
+      "travel": 24,
+      "peak": 2.64,
+      "neg": 0.14
+    },
+    {
+      "controller": "SLSQP lookup (unlimited)",
+      "gain": 3.386,
+      "travel": 640,
+      "peak": 42.55,
+      "neg": 0.06
+    },
+    {
+      "controller": "SLSQP lookup (RL=0.5/s)",
+      "gain": 2.178,
+      "travel": 277,
+      "peak": 3.0,
+      "neg": 0.1
+    }
+  ]
+}

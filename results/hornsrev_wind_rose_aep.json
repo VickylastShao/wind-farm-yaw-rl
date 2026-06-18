@@ -1,0 +1,13 @@
+{
+  "source": "Synthetic Horns Rev 1 climatology (Barthelmie 2009, Hansen 2012)",
+  "weibull_k": 2.1,
+  "weibull_A": 10.5,
+  "mean_ws": 9.364858742304813,
+  "aligned_cube_prob": 0.045155,
+  "near_aligned_prob": 0.116133,
+  "aep_gain_drl_pct": 0.9695293399999999,
+  "drl_annual_travel_deg": 2601720.0,
+  "slsqp_annual_travel_deg": 4367736.0,
+  "gain_per_kdeg_drl": 0.000372649378103716,
+  "gain_per_kdeg_slsqp": 0.00022197526132531817
+}

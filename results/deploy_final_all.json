@@ -1,0 +1,38 @@
+{
+  "Static Config-E (raw)": {
+    "gain": -0.201,
+    "travel": 191,
+    "peak": 1.86,
+    "neg": 23
+  },
+  "DRL-Deploy (Static)": {
+    "gain": -0.083,
+    "travel": 16,
+    "peak": 1.86,
+    "neg": 18
+  },
+  "J=15 Dyn + DRL-Deploy": {
+    "gain": 0.034,
+    "travel": 24,
+    "peak": 2.64,
+    "neg": 14
+  },
+  "SLSQP RL=0.5": {
+    "gain": 2.178,
+    "travel": 277,
+    "peak": 3.0,
+    "neg": 10
+  },
+  "SLSQP Unlimited": {
+    "gain": 3.386,
+    "travel": 640,
+    "peak": 42.55,
+    "neg": 6
+  },
+  "Zero yaw": {
+    "gain": 0.0,
+    "travel": 0,
+    "peak": 0.0,
+    "neg": 0
+  }
+}

@@ -1,0 +1,51 @@
+[
+  {
+    "name": "Zero yaw",
+    "mean_gain": 0.0,
+    "mean_travel": 0,
+    "peak_rate": 0,
+    "neg_frac": 0
+  },
+  {
+    "name": "Static Config-E",
+    "mean_gain": -0.163,
+    "mean_travel": 165,
+    "peak_rate": 1.66,
+    "neg_frac": 0.23
+  },
+  {
+    "name": "Dynamic l=0",
+    "mean_gain": -1.932,
+    "mean_travel": 456,
+    "peak_rate": 4.88,
+    "neg_frac": 0.27
+  },
+  {
+    "name": "Dynamic l=5e-4",
+    "mean_gain": -0.87,
+    "mean_travel": 393,
+    "peak_rate": 4.93,
+    "neg_frac": 0.26
+  },
+  {
+    "name": "Dynamic l=2e-3",
+    "mean_gain": -1.054,
+    "mean_travel": 376,
+    "peak_rate": 4.29,
+    "neg_frac": 0.27
+  },
+  {
+    "name": "SLSQP Unlimited",
+    "mean_gain": 3.386,
+    "mean_travel": 640,
+    "peak_rate": 42.55,
+    "neg_frac": 0.06
+  },
+  {
+    "name": "SLSQP RL=0.5/s",
+    "mean_gain": 2.178,
+    "mean_travel": 277,
+    "peak_rate": 3.0,
+    "neg_frac": 0.1
+  }
+]

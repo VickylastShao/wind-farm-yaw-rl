@@ -1,0 +1,20 @@
+[
+  {
+    "layout": "3\u00d73 Regular (trained)",
+    "ac_gain": 4.61,
+    "marginal": 0.28,
+    "neg": 16
+  },
+  {
+    "layout": "Irregular (transfer)",
+    "ac_gain": -1.7,
+    "marginal": -0.09,
+    "neg": 54
+  },
+  {
+    "layout": "Staggered (transfer)",
+    "ac_gain": 1.61,
+    "marginal": 0.0,
+    "neg": 46
+  }
+]

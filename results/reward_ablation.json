@@ -1,0 +1,18 @@
+[
+  {
+    "name": "SLSQP-regret (Config-E)",
+    "dynamic_gain": -0.158,
+    "dynamic_travel": 210,
+    "peak": 1.93,
+    "ac_gain": 4.48,
+    "ac_std": 6.17
+  },
+  {
+    "name": "Marginal (no oracle)",
+    "dynamic_gain": -0.07,
+    "dynamic_travel": 115,
+    "peak": 2.17,
+    "ac_gain": 4.13,
+    "ac_std": 5.56
+  }
+]

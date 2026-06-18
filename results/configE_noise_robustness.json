@@ -1,0 +1,110 @@
+[
+  {
+    "noise": "clean",
+    "sigma_phi": 0,
+    "sigma_v": 0,
+    "sigma_yaw": 0,
+    "marginal": 2.2379491329193115,
+    "aligned_cube": 14.881260871887207,
+    "neg_frac": 0.208
+  },
+  {
+    "noise": "\u03c3\u03c6=1\u00b0",
+    "sigma_phi": 1,
+    "sigma_v": 0,
+    "sigma_yaw": 0,
+    "marginal": 2.1834774017333984,
+    "aligned_cube": 14.300885200500488,
+    "neg_frac": 0.208
+  },
+  {
+    "noise": "\u03c3\u03c6=2\u00b0",
+    "sigma_phi": 2,
+    "sigma_v": 0,
+    "sigma_yaw": 0,
+    "marginal": 2.182054042816162,
+    "aligned_cube": 14.284505844116211,
+    "neg_frac": 0.21
+  },
+  {
+    "noise": "\u03c3\u03c6=5\u00b0",
+    "sigma_phi": 5,
+    "sigma_v": 0,
+    "sigma_yaw": 0,
+    "marginal": 2.180067777633667,
+    "aligned_cube": 14.260143280029297,
+    "neg_frac": 0.21
+  },
+  {
+    "noise": "\u03c3\u03c6=10\u00b0",
+    "sigma_phi": 10,
+    "sigma_v": 0,
+    "sigma_yaw": 0,
+    "marginal": 2.1785778999328613,
+    "aligned_cube": 14.237053871154785,
+    "neg_frac": 0.21
+  },
+  {
+    "noise": "\u03c3v=0.3",
+    "sigma_phi": 0,
+    "sigma_v": 0.3,
+    "sigma_yaw": 0,
+    "marginal": 2.180217742919922,
+    "aligned_cube": 14.2658052444458,
+    "neg_frac": 0.21
+  },
+  {
+    "noise": "\u03c3v=0.5",
+    "sigma_phi": 0,
+    "sigma_v": 0.5,
+    "sigma_yaw": 0,
+    "marginal": 2.1788511276245117,
+    "aligned_cube": 14.25358772277832,
+    "neg_frac": 0.21
+  },
+  {
+    "noise": "\u03c3v=1.0",
+    "sigma_phi": 0,
+    "sigma_v": 1.0,
+    "sigma_yaw": 0,
+    "marginal": 2.176196336746216,
+    "aligned_cube": 14.2312593460083,
+    "neg_frac": 0.21
+  },
+  {
+    "noise": "\u03c3\u03b3=0.5\u00b0",
+    "sigma_phi": 0,
+    "sigma_v": 0,
+    "sigma_yaw": 0.5,
+    "marginal": 2.157209634780884,
+    "aligned_cube": 14.13930606842041,
+    "neg_frac": 0.212
+  },
+  {
+    "noise": "\u03c3\u03b3=1\u00b0",
+    "sigma_phi": 0,
+    "sigma_v": 0,
+    "sigma_yaw": 1.0,
+    "marginal": 2.1147093772888184,
+    "aligned_cube": 13.928445816040039,
+    "neg_frac": 0.21
+  },
+  {
+    "noise": "\u03c3\u03b3=2\u00b0",
+    "sigma_phi": 0,
+    "sigma_v": 0,
+    "sigma_yaw": 2.0,
+    "marginal": 1.6917892694473267,
+    "aligned_cube": 9.861151695251465,
+    "neg_frac": 0.226
+  },
+  {
+    "noise": "combined",
+    "sigma_phi": 2,
+    "sigma_v": 0.3,
+    "sigma_yaw": 1.0,
+    "marginal": 2.11244797706604,
+    "aligned_cube": 13.904182434082031,
+    "neg_frac": 0.21
+  }
+]

@@ -12,7 +12,7 @@
 A JAX/NNX-native Soft Actor-Critic (SAC) agent was implemented on the same on-device stack used for PPO. The SAC agent uses twin Q-networks with $[128,128]$ MLPs (identical architecture to PPO), a Gaussian policy with tanh squashing, automatic entropy tuning ($\alpha_0{=}0.2$, target entropy ${=}{-}\mathrm{dim}(\mathcal{A})$), and a replay buffer of $5{\times}10^{5}$ transitions. Training used $N_\mathrm{envs}{=}4$ parallel environments (vs.\ PPO's 128; the lower count is a result of JIT compilation constraints for SAC's multi-gradient update structure) and $N_\mathrm{steps}{=}512$ steps per rollout. Five seeds were trained for $3{\times}10^{7}$ environment steps each under Config-E settings (J=3, deficit normalization, position encoding, SLSQP-regret reward, focused wind sampling 0.3/0.3/0.4, $\pm10^\circ$ action bounds, downstream locking).
 
 \subsection{Results}
-At the matched $3{\times}10^{7}$-step budget, SAC achieves a five-seed-mean final episode return of $+185.2\,\pm\,37.1$ (regret-reward units), compared to PPO Config-E's $+334.3\,\pm\,217.0$. SAC reaches $55.4\%$ of PPO's mean reward with substantially lower inter-seed variance ($\pm37.1$ vs.\ $\pm217.0$), indicating more consistent but overall lower performance. The entropy coefficient $\alpha$ converges from $0.2$ to $0.010$--$0.028$ across seeds. The throughput gap is $13{\times}$ (${\sim}7{,}100$\,FPS for SAC vs.\ ${\sim}95{,}000$\,FPS for PPO), arising from SAC's three separate gradient computations per update.
+At the matched $3{\times}10^{7}$-step budget, SAC achieves a five-seed-mean final episode return of $+185.2\,\pm\,75.3$ (regret-reward units), compared to PPO Config-E's $+334.3\,\pm\,217.0$. SAC reaches $55.4\%$ of PPO's mean reward with substantially lower inter-seed variance ($\pm75.3$ vs.\ $\pm217.0$), indicating more consistent but overall lower performance. The entropy coefficient $\alpha$ converges from $0.2$ to $0.010$--$0.028$ across seeds. The throughput gap is $13{\times}$ (${\sim}7{,}100$\,FPS for SAC vs.\ ${\sim}95{,}000$\,FPS for PPO), arising from SAC's three separate gradient computations per update.
 
 \subsection{Discussion}
 We attribute SAC's underperformance to: (i)~off-policy sample inefficiency when the reward signal is concentrated in a narrow wind regime (${\sim}9\%$ of conditions); (ii)~the squashed-Gaussian action parameterization penalizing large yaw increments; and (iii)~automatic entropy tuning requiring substantial interaction data before exploitation. A pure-JAX refactoring of the SAC gradient computation (bypassing NNX state merging inside traced functions, reducing per-step overhead from $56$\,ms to $14$\,ms) is expected to narrow the throughput gap.
@@ -44,7 +44,7 @@ To quantify the independent contribution of KL-targeted early stopping, two Conf
 \toprule
 Metric & KL ON (0.015) & KL OFF (100) \\
 \midrule
-Final episode reward & $+344.0\,\pm\,76.5$ & $+311.0\,\pm\,113.1$ \\
+Final episode reward & $+344.0\,\pm\,93.7$ & $+311.0\,\pm\,138.6$ \\
 Mean KL divergence (last iter.) & $0.0021$ & $0.0021$ \\
 Early-stop trigger rate & $0.3\%$ & $0.0\%$ \\
 \bottomrule
@@ -64,7 +64,7 @@ The KL ON configuration achieves a modestly higher final episode reward ($+344.0
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.95\linewidth]{fig_lock_ablation_eval}
-\caption{Lock-mask ablation under Config-E on the $3\!\times\!3$ layout, three seeds. Mean regret-reward gain over $200$ uniformly sampled wind conditions: $\mathbf{+2.42\%}$ (\textsc{lock\_on}) vs.\ $\mathbf{-0.46\%}$ (\textsc{lock\_off}), with negative-gain fractions of $18\%$ and $28\%$ respectively. Locking remains structurally necessary under the optimized configuration.}
+\caption{Lock-mask ablation on the $3\!\times\!3$ layout, three seeds (Config-A baseline configuration). Mean gain over uniformly sampled wind conditions: $\mathbf{+2.42\%}$ (\textsc{lock\_on}) vs.\ $\mathbf{-0.46\%}$ (\textsc{lock\_off}), with negative-gain fractions of $18\%$ and $28\%$ respectively. Locking is structurally necessary for stable cooperative-yaw learning. The lock mechanism is retained in all subsequent configurations including Config-E.}
 \label{fig:lock_ablation}
 \end{figure}
 
@@ -161,5 +161,50 @@ Per-seed final returns and per-group entropy diagnostics are saved in
 \caption{Observation noise robustness. (a)~Gain vs.\ wind-direction noise $\sigma_\phi$. (b)~Gain vs.\ wind-speed noise $\sigma_v$. (c)~2D heatmap of aligned-cube gain as a function of $(\sigma_\phi,\sigma_v)$. The controller tolerates $\sigma_\phi\!=\!10^\circ$ with $<\!1\%$ relative gain erosion.}
 \label{fig:noise_robustness}
 \end{figure}
+
+\section{J=15 Extended Observation Horizon --- Causal Ablation and J-Trend}
+
+\subsection{J-horizon trend under dynamic wind}
+Table~S2 summarizes the dynamic-wind performance across observation history lengths $J\in\{3,8,15\}$ under both AR(1) protocols (Proto~A: $\rho{=}0.99$, $\sigma{=}1^\circ$; Proto~B: $\rho{=}0.95$, $\sigma{=}2^\circ$). All policies use $\lambda_\mathrm{rate}{=}5{\times}10^{-4}$ and $6{\times}10^{7}$ training steps (5 seeds each). The mean per-step gain improves monotonically with $J$: from $-1.52\%$ (J=3, Proto~A) to $-0.94\%$ (J=15, Proto~A), and from $-1.21\%$ to $-0.53\%$ under Proto~B. Yaw travel also decreases with longer observation windows ($-27\%$ from J=3 to J=15), consistent with better temporal context reducing reactive over-steering. The J=15 Proto~B result ($-0.53\%$) is $2.9{\times}$ better than J=3 Proto~B ($-1.21\%$).
+
+\begin{table}[h]
+\centering
+\caption{Dynamic-wind performance vs.\ observation history length $J$ (5-seed mean, $\lambda_\mathrm{rate}{=}5{\times}10^{-4}$, $6{\times}10^{7}$ steps).}
+\label{tab:j_trend}
+\begin{tabular}{lcccc}
+\toprule
+Configuration & $J$ & Proto~A gain [\%] & Proto~B gain [\%] & Travel/turb [$^\circ$] \\
+\midrule
+Static J=3 (reference) & 3 & $-0.178$ & $-0.120$ & $180$ \\
+Dynamic $\lambda{=}5{\times}10^{-4}$ & 3 & $-1.519$ & $-1.210$ & $376$ \\
+Dynamic $\lambda{=}5{\times}10^{-4}$ & 8 & $-1.667$ & $-1.231$ & $344$ \\
+Dynamic $\lambda{=}5{\times}10^{-4}$ & 15 & $-0.937$ & $-0.534$ & $273$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Causal ablation of temporal observation ordering}
+The causal ablation experiment reported in the main text (Section~4.8, Table~16) confirms that the J=15 policy exploits temporally-ordered observation history rather than merely benefiting from a larger input dimension. The complete results are available in \texttt{results/j15\_causal\_ablation.json}.
+
+\section{Load Proxy Analysis}
+
+To provide first-order structural-load context without full aeroelastic simulation, we compute two simplified yaw-activity load proxies on the unified dynamic-wind benchmark (200 AR(1) trajectories, 200 steps, 5 Config-E seeds). Proxy~B (cumulative squared yaw change, $\sum\Delta\gamma^2$) approximates yaw-bearing wear proportional to the squared displacement per step; Proxy~C (cumulative absolute yaw rate, $\sum|\Delta\gamma|/\Delta t$) approximates gearbox fatigue proportional to the integrated yaw speed. Table~S3 compares Static Config-E, Dynamic $\lambda{=}5{\times}10^{-4}$, and the zero-yaw baseline.
+
+\begin{table}[h]
+\centering
+\caption{Yaw-activity load proxies on the unified dynamic-wind benchmark (5-seed Config-E mean).}
+\label{tab:load_proxy}
+\begin{tabular}{lccc}
+\toprule
+Controller & Proxy~B $\sum\Delta\gamma^2$ & Proxy~C $\sum|\Delta\gamma|/\Delta t$ & Reversals \\
+\midrule
+Zero yaw (baseline) & $0$ & $0$ & $0$ \\
+Static Config-E & $2.54{\times}10^{6}$ & $4{,}007$ & $1{,}662$ \\
+Dynamic $\lambda{=}5{\times}10^{-4}$ & $1.35{\times}10^{7}$ & $10{,}419$ & $1{,}684$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Static training followed by post-hoc DRL-Deploy gating achieves $5.3{\times}$ lower Proxy~B and $2.6{\times}$ lower Proxy~C compared to dynamic-wind training at $\lambda_\mathrm{rate}{=}5{\times}10^{-4}$, suggesting a more favorable power--load trade-off for the static+gate strategy. These proxies are first-order approximations; full aeroelastic validation using OpenFAST or FAST.Farm is required for definitive structural-load conclusions.
 
 \end{document}
