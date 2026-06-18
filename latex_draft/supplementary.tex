@@ -383,7 +383,7 @@ Shuffle          & $-0.087$ & $124.6$ & $16.7$ \\
 
 \subsection{Interpretation}
 
-The causal ablation provides direct evidence that the J=15 policy exploits temporally ordered observational history at the wake-propagation time scale. These results validate the design rationale for extended observation windows but do not imply that temporal context alone solves dynamic control: the J=15 policy must still be combined with the DRL-Deploy supervisory wrapper to achieve deployment-relevant performance (Section~S8, main text Section~4.8).
+The causal ablation provides evidence that the J=15 policy uses temporally ordered observational history beyond the most recent $30$\,s. The modest impact of masking the $t{-}10$--$t{-}12$ band relative to the Last-3 collapse suggests that the policy draws on multiple time scales across the full $150$\,s window rather than relying predominantly on a single delay-epoch. These results validate the design rationale for extended observation windows but do not imply that temporal context alone solves dynamic control: the J=15 policy must still be combined with the DRL-Deploy supervisory wrapper to achieve deployment-relevant performance (Section~S8, main text Section~4.8).
 
 %=============================================================================
 \section{DRL-Deploy Wrapper Sensitivity}\label{sec:deploy_sens}
