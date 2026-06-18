@@ -57,7 +57,7 @@ Metric & Definition \\
 \midrule
 Farm-power gain [\%] & $(P_\mathrm{ctrl} - P_0) / P_0 \times 100$, where $P_0$ is zero-yaw baseline power \\
 Gain/step [\%] & Mean per-step gain over a trajectory; the deployment-relevant unit \\
-Aligned-cube (AC) gain [\%] & Mean gain over conditions with $|\phi{-}270^\circ|{\le}5^\circ$ and $v{<}11.4$\,m/s \\
+Aligned-cube (AC) gain [\%] & Mean gain over conditions with $|\phi{-}270^\circ|{<}15^\circ$ and $v{<}11.4$\,m/s (matching the DRL-Deploy gate-entry band) \\
 Yaw travel [$^\circ$/turb] & Cumulative absolute yaw change per turbine, summed over a trajectory \\
 Peak yaw rate [$^\circ\!/\!\mathrm{s}$] & Maximum per-step $|\Delta\gamma| / T$ over a trajectory \\
 Negative-gain fraction [\%] & Fraction of control steps where $P_\mathrm{ctrl} < P_0$ \\
