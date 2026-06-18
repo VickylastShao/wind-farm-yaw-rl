@@ -530,17 +530,6 @@ Restricting attention to the cube-region wake-aligned envelope ($|\phi\!-\!270^\
 
 The full per-condition DRL vs.\ SLSQP scatter comparison is shown in Fig.~\ref{fig:drl_vs_slsqp}; the regime-binned distribution is summarized in Table~\ref{tab:dist_eval_binned}.
 
-% [Moved to Supplementary]
-
-
-\subsubsection{Annual energy production impact}\label{sec:aep}
-
-To assess the annual energy production (AEP) impact under realistic wind conditions, we construct a synthetic wind rose based on published Horns Rev~I offshore wind climatology~\citep{Barthelmie2009}: a Weibull speed distribution ($k{=}2.1$, $A{=}10.5$\,m/s at 70\,m hub height) and a mixture of von Mises directional distributions reflecting the dominant westerly wind regime of the North Sea. A Monte Carlo sample of $10^{6}$ wind hours yields a mean wind speed of $9.4$\,m/s, an aligned-cube occurrence probability of $4.5\%$, and a near-aligned occurrence of $11.6\%$.
-
-Weighting the Config-E FLORIS-validated gains (aligned-cube $+5.02\%$, near-aligned ${\sim}1.5\%$, off-axis ${\sim}0.7\%$) by the wind-rose probabilities yields an estimated AEP gain of $\mathbf{+0.97\%}$ (aligned-cube: $4.5\%{\times}5.02\%{=}0.226$\,pp; near-aligned: $11.6\%{\times}1.5\%{=}0.174$\,pp; off-axis: $83.9\%{\times}0.7\%{=}0.587$\,pp). For a representative $500$\,MW offshore wind farm at $45\%$ capacity factor, this corresponds to ${\sim}19{,}100$\,MWh of additional annual generation. The wake-aligned regimes (aligned-cube + near-aligned, $16.1\%$ of wind hours) contribute ${\sim}40\%$ of the total AEP gain, while the dominant off-axis regime contributes ${\sim}60\%$ through small but persistent marginal gains.
-
-The annual per-turbine yaw travel is estimated at $2.6{\times}10^{6}$ degrees for the static Config-E policy, compared to $4.4{\times}10^{6}$ degrees for the rate-limited SLSQP lookup table (RL$=0.5^\circ\!/\!\mathrm{s}$). The DRL controller thus delivers comparable AEP gains with $1.7{\times}$ less yaw actuator activity. A more rigorous Monte Carlo AEP replay under the DRL-Deploy wrapper is presented in Section~\ref{sec:hornsrev_aep}; the analytical estimate here serves as a first-order cross-check using the FLORIS-validated steady-state gains.
-
 %%========================================================================
 \subsection{Online inference performance and comparison with existing control frameworks}\label{sec:online_perf}
 
