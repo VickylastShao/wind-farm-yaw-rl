@@ -491,46 +491,48 @@ SLSQP unlimited     & $+0.754$ & $14.475$ & $+0.016$ & $4.47$ \\
 
 \subsection{Sensitivity to wind-direction concentration and bias}
 
-Tables~S16--S17 report the AEP gain sensitivity to the von Mises concentration parameter $\kappa$ and to a directional bias (mean shift). The sensitivity evaluation uses Static DRL-Deploy (seed~0, $n{=}2{,}000$ conditions per parameter value). J=15 DRL-Deploy sensitivity is consistent with the Static Deploy pattern but at a positive offset; results are available in \texttt{results/hornsrev\_aep\_deploy\_final.json}. The AEP gain varies within $[-0.52\%,-1.59\%]$ for Static Deploy across $\kappa{\in}[1.0,8.0]$, and wind-direction bias of ${\pm}5^\circ$ produces ${<}0.1\%$ AEP change. These uncertainties are small relative to the controller-to-controller differences in Table~S15, confirming that the qualitative ranking (J=15 Deploy as the most deployment-favourable DRL variant) is robust to climatological uncertainty.
+To verify that the AEP ranking (J=15 Deploy as the most deployment-favourable DRL variant) is robust to climatological uncertainty, we evaluate both DRL-Deploy controllers under varying wind-direction concentration $\kappa{\in}[1.0,8.0]$ and directional bias $\pm5^\circ$. Table~S16 reports the $\kappa$ sensitivity; Table~S17 reports the bias sensitivity. Static Deploy uses $n{=}2{,}000$ conditions per parameter value; J=15 Deploy uses $n{=}500$ (the smaller sample reflects the higher per-condition evaluation cost of the J=15 policy, and values should be interpreted with correspondingly wider confidence intervals).
+
+The J=15 Deploy AEP remains near-neutral to slightly positive across all $\kappa$ and bias values tested, while Static Deploy is consistently negative. The qualitative ranking---J=15 Deploy outperforms Static Deploy under the Horns Rev wind climate---is preserved across the full sensitivity range, confirming that the main AEP finding is not an artifact of the nominal climatological parameters.
 
 \begin{table}[h]
 \centering
-\caption{AEP sensitivity to direction concentration $\kappa$ (Static DRL-Deploy, seed~0, $n{=}2{,}000$).}
+\caption{AEP sensitivity to direction concentration $\kappa$: both DRL-Deploy controllers.}
 \label{tab:aep_kappa}
 \small
-\begin{tabular}{lccc}
+\begin{tabular}{lcccc}
 \toprule
-$\kappa$ & AC prob.\ [\%] & AEP gain [\%] & Annual travel [Mdeg] \\
+$\kappa$ & AC prob.\ [\%] & Static Deploy AEP [\%] & J=15 Deploy AEP [\%] & Static travel [Mdeg] \\
 \midrule
-$1.0$ & $6.2$ & $-0.519$ & $5.61$ \\
-$2.0$ & $9.1$ & $-0.672$ & $7.65$ \\
-$4.0$ & $12.8$ & $-1.119$ & $10.78$ \\
-$8.0$ & $19.1$ & $-1.587$ & $15.27$ \\
+$1.0$ & $6.2$ & $-0.519$ & $-0.005$ & $5.61$ \\
+$2.0$ & $9.1$ & $-0.672$ & $-0.014$ & $7.65$ \\
+$4.0$ & $12.8$ & $-1.119$ & $+0.250$ & $10.78$ \\
+$8.0$ & $19.1$ & $-1.587$ & $+0.286$ & $15.27$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[h]
 \centering
-\caption{AEP sensitivity to wind-direction bias (Static DRL-Deploy, seed~0, $n{=}2{,}000$).}
+\caption{AEP sensitivity to wind-direction bias: both DRL-Deploy controllers.}
 \label{tab:aep_bias}
 \small
-\begin{tabular}{lcc}
+\begin{tabular}{lccc}
 \toprule
-Bias [$^\circ$] & AEP gain [\%] & Annual travel [Mdeg] \\
+Bias [$^\circ$] & Static Deploy AEP [\%] & J=15 Deploy AEP [\%] & Static travel [Mdeg] \\
 \midrule
-$-5$ & $-0.700$ & $7.28$ \\
-$-2$ & $-0.550$ & $7.35$ \\
-$0$  & $-0.672$ & $7.65$ \\
-$+2$ & $-0.702$ & $7.72$ \\
-$+5$ & $-0.754$ & $7.58$ \\
+$-5$ & $-0.700$ & $-0.010$ & $7.28$ \\
+$-2$ & $-0.550$ & $+0.177$ & $7.35$ \\
+$0$  & $-0.672$ & $+0.083$ & $7.65$ \\
+$+2$ & $-0.702$ & $+0.186$ & $7.72$ \\
+$+5$ & $-0.754$ & $+0.159$ & $7.58$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Interpretation}
 
-J=15 DRL-Deploy is the only non-baseline controller achieving positive annualised gain with the lowest yaw travel. It does not maximise AEP---SLSQP achieves $3.7{\times}$ higher AEP gain at $2.2{\times}$ higher travel cost, and $6.2{\times}$ higher AEP at $6.9{\times}$ higher travel in the unlimited case---but it offers the most deployment-favourable power--travel compromise among the evaluated controllers.
+J=15 DRL-Deploy is the only non-baseline controller achieving positive annualised gain with the lowest yaw travel. It does not maximise AEP---SLSQP achieves $3.7{\times}$ higher AEP gain at $2.2{\times}$ higher travel cost, and $6.2{\times}$ higher AEP at $6.9{\times}$ higher travel in the unlimited case---but it offers the most deployment-favourable power--travel compromise among the evaluated controllers. The sensitivity analysis confirms that this qualitative conclusion is robust to plausible uncertainty in the Horns Rev wind-direction climatology.
 
 %=============================================================================
 \section{Safety and Fail-Safe Stress Tests}\label{sec:safety_details}
