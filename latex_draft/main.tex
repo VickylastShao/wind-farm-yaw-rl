@@ -81,12 +81,13 @@ The remainder of the paper is organized as follows. Section~\ref{sec:method} pre
 \section{Methodology}\label{sec:method}
 
 \subsection{Overall framework}\label{sec:framework}
-We follow a ``model-then-control'' methodology composed of two coupled stages, summarized in Fig.~\ref{fig:framework}. Stage I constructs a calibrated wake model; Stage II uses it as the training environment for the DRL controller.
+
+The core argument of this paper is that static snapshot-wise yaw optimization does not constitute a deployable control solution under time-varying wind. Fig.~\ref{fig:framework} contrasts the conventional static-optimization paradigm (left) with the proposed DRL-Deploy framework (right). On the left, an offline solver (e.g., SLSQP) consumes a single inflow snapshot $(\phi_t, v_t)$ and returns a static yaw vector $\boldsymbol{\gamma}^*_t$; this pipeline ignores wake-propagation delay, actuator rate constraints, yaw-activity cost, and the absence of a fail-safe fallback mechanism. On the right, the DRL-Deploy controller ingests a $J$-step observation history (spanning the wake-propagation time scale) together with the current SCADA wind measurement, passes through a PPO policy MLP ($0.1$\,ms inference), and then through a supervisory wrapper of sector gating, hysteresis, yaw-command deadband, rate limiting, and zero-yaw fallback, producing an actuator-aware yaw command $\boldsymbol{\gamma}_t$. The deployment gap---the set of constraints that prevent a static optimum from being a deployable control target---is bridged by the combination of temporal context, closed-loop policy, and supervisory wrapper.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.85\linewidth]{fig_framework}
-\caption{Two-stage research framework: wake-model construction with multi-scenario parameter calibration (Stage I) feeds into the PPO-based cooperative yaw controller (Stage II).}
+\includegraphics[width=0.95\linewidth]{fig_framework}
+\caption{\textbf{From static optimization to deployment-oriented closed-loop control.} Left: conventional static-optimization pipeline (SLSQP or lookup table) that maps a single inflow snapshot to a static yaw vector, without accounting for wake-propagation delay, actuator dynamics, or fail-safe fallback. Right: the proposed DRL-Deploy framework, which combines a temporally-aware PPO policy with a supervisory wrapper (gate, hysteresis, deadband, rate limit, fallback) to produce actuator-compatible yaw commands under time-varying wind.}
 \label{fig:framework}
 \end{figure}
 
