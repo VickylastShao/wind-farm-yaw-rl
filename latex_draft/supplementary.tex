@@ -303,8 +303,8 @@ Static Config-E (raw)         & $-0.163$ & $165$ & $1.66$ \\
 Dynamic $\lambda{=}0$          & $-1.932$ & $456$ & $4.88$ \\
 Dynamic $\lambda{=}5{\times}10^{-4}$ & $-0.870$ & $393$ & $4.93$ \\
 Dynamic $\lambda{=}2{\times}10^{-3}$ & $-1.054$ & $376$ & $4.29$ \\
-SLSQP lookup, RL${=}0.5^\circ\!/\!\mathrm{s}$ & $+2.178$ & $277$ & $3.00$ \\
-SLSQP lookup, unlimited       & $+3.386$ & $640$ & $42.55$ \\
+SLSQP lookup, RL${=}0.5^\circ\!/\!\mathrm{s}$ & $+2.178$ & $277$ & $0.33$ \\
+SLSQP lookup, unlimited       & $+3.386$ & $640$ & $4.73$ \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -319,18 +319,18 @@ SLSQP lookup, unlimited       & $+3.386$ & $640$ & $42.55$ \\
 Controller & Gain/step [\%] & Travel/turb [$^\circ$] & Peak rate [$^\circ\!/\!\mathrm{s}$] \\
 \midrule
 Zero yaw                      & $0.000$ & $0$    & $0.00$ \\
-Static Config-E (raw)         & $-0.201$ & $191$  & $1.86$ \\
-DRL-Deploy (Static)           & $-0.083$ & $16$   & $1.86$ \\
-DRL-Deploy (J=15 Dyn)         & $+0.034$ & $24$   & $2.64$ \\
-SLSQP lookup, RL${=}0.5^\circ\!/\!\mathrm{s}$ & $+2.178$ & $277$  & $3.00$ \\
-SLSQP lookup, unlimited       & $+3.386$ & $640$  & $42.55$ \\
+Static Config-E (raw)         & $-0.201$ & $191$  & $0.21$ \\
+DRL-Deploy (Static)           & $-0.083$ & $16$   & $0.21$ \\
+DRL-Deploy (J=15 Dyn)         & $+0.034$ & $24$   & $0.29$ \\
+SLSQP lookup, RL${=}0.5^\circ\!/\!\mathrm{s}$ & $+2.178$ & $277$  & $0.33$ \\
+SLSQP lookup, unlimited       & $+3.386$ & $640$  & $4.73$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Interpretation}
 
-Raw static DRL and the SLSQP lookup table occupy opposite extremes of the power--travel trade-off. Raw DRL has low travel but negative mean gain; the unlimited lookup has high gain but $42.55^\circ\!/\!\mathrm{s}$ peak rate---far beyond the $0.3$--$0.5^\circ\!/\!\mathrm{s}$ capability of utility-scale yaw drives. Dynamic-wind training without rate penalties over-reacts ($2.4{\times}$ travel increase from static to $\lambda{=}0$ under Proto~A). Rate penalties mitigate the over-reaction but do not alone close the deployment gap: temporal context (J=15) and the supervisory wrapper (DRL-Deploy) are required to achieve positive per-step gain with actuator-compatible travel. The DRL-Deploy results in Table~S10 (Protocol~B) represent the final deployment-oriented evaluation.
+Raw static DRL and the SLSQP lookup table occupy opposite extremes of the power--travel trade-off. Raw DRL has low travel but negative mean gain; the unlimited lookup has high gain but $4.73^\circ\!/\!\mathrm{s}$ per-turbine peak rate---far beyond the $0.3$--$0.5^\circ\!/\!\mathrm{s}$ capability of utility-scale yaw drives. Dynamic-wind training without rate penalties over-reacts ($2.4{\times}$ travel increase from static to $\lambda{=}0$ under Proto~A). Rate penalties mitigate the over-reaction but do not alone close the deployment gap: temporal context (J=15) and the supervisory wrapper (DRL-Deploy) are required to achieve positive per-step gain with actuator-compatible travel. The DRL-Deploy results in Table~S10 (Protocol~B) represent the final deployment-oriented evaluation.
 
 %=============================================================================
 \section{Extended Observation Horizon and Wake-Delay Hypothesis}\label{sec:j_extended}
@@ -454,7 +454,7 @@ Table~S14 reports sensitivity to the gate entry band ($10^\circ$, $15^\circ$, $2
 
 \subsection{Rate-limit verification}
 
-The per-step rate limit of $3^\circ$ corresponds to $0.3^\circ\!/\!\mathrm{s}$ at $T{=}10$\,s. This is consistent with the $0.3$--$0.5^\circ\!/\!\mathrm{s}$ yaw-rate capability of multi-MW utility-scale turbines. The DRL-Deploy peak yaw rates in Table~S10 ($1.86$--$2.64^\circ\!/\!\mathrm{s}$ reported as per-trajectory maximum rate, not per-step average) reflect transient per-step maxima within the $3^\circ$/step bound, not sustained rates.
+The DRL-Deploy controller does not apply a separate, binding rate-limit parameter beyond the PPO action bound (${\pm}10^\circ$ per step, ${\pm}1.0^\circ\!/\!\mathrm{s}$ per turbine at $T{=}10$\,s). The per-turbine peak yaw rates of DRL-Deploy controllers (Tables~S9--S10, $0.21$--$0.29^\circ\!/\!\mathrm{s}$ per turbine) are consistent with the $0.3$--$0.5^\circ\!/\!\mathrm{s}$ yaw-rate capability of multi-MW utility-scale turbines. The code parameter \texttt{RATE\_MAX}$\,{=}\,3.0$ in the evaluation scripts produces a clip bound of $30^\circ$/step, which is non-binding relative to the ${\pm}10^\circ$ action bound; the effective rate constraint is therefore the PPO action space itself.
 
 %=============================================================================
 \section{Horns Rev AEP Replay Details}\label{sec:aep_details}
@@ -481,10 +481,10 @@ Table~S15 reports the full AEP replay results (main text Table~16).
 Controller & AEP gain [\%] & Annual travel [Mdeg] & Gain/travel & Peak rate [$^\circ\!/\!\mathrm{s}$] \\
 \midrule
 Greedy yaw          & $0.000$ & $0.000$ & ---      & $0.00$ \\
-Static DRL-Deploy   & $-0.694$ & $8.169$ & $-0.027$ & $1.78$ \\
-J=15 DRL-Deploy     & $+0.122$ & $2.098$ & $+0.018$ & $1.70$ \\
-SLSQP RL$=0.5^\circ\!/\!\mathrm{s}$ & $+0.455$ & $4.572$ & $+0.031$ & $4.00$ \\
-SLSQP unlimited     & $+0.754$ & $14.475$ & $+0.016$ & $40.23$ \\
+Static DRL-Deploy   & $-0.694$ & $8.169$ & $-0.027$ & $0.20$ \\
+J=15 DRL-Deploy     & $+0.122$ & $2.098$ & $+0.018$ & $0.19$ \\
+SLSQP RL$=0.5^\circ\!/\!\mathrm{s}$ & $+0.455$ & $4.572$ & $+0.031$ & $0.44$ \\
+SLSQP unlimited     & $+0.754$ & $14.475$ & $+0.016$ & $4.47$ \\
 \bottomrule
 \end{tabular}
 \end{table}
