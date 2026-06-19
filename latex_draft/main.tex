@@ -763,7 +763,7 @@ We evaluate four gating strategies on the same $1000$ AR(1) trajectories:
 
 \begin{enumerate}
 \item \textbf{Raw DRL}: the unmodified Config-E policy, active at all times---the baseline for gating improvements.
-\item \textbf{Gated DRL}: if $|\phi{-}270^\circ|{<}15^\circ$ and $v{<}11.4$\,m/s, use the DRL policy; otherwise, set all yaw offsets to zero. The gate is evaluated independently at each control step.
+\item \textbf{Gated DRL}: if $|\phi{-}270^\circ|{<}15^\circ$ and $v{<}11.4$\,m/s, use the DRL policy; otherwise, set all yaw offsets to zero. The gate is evaluated independently at each control step. The $15^\circ$ threshold corresponds to the aligned-cube regime where the raw (un-gated) DRL policy achieves $+4.91\%$ gain (\S\ref{sec:3x3_results}); it is an empirically determined boundary rather than an arbitrary post-hoc selection.
 \item \textbf{Hysteresis-Gated DRL}: entry threshold $15^\circ$, exit threshold $20^\circ$. Once the wind enters the wake-aligned band ($|\phi{-}270^\circ|{<}15^\circ$), the policy remains active until conditions leave a wider exit band ($|\phi{-}270^\circ|{\ge}20^\circ$). This prevents rapid toggling when wind direction hovers near the gate boundary.
 \item \textbf{Gated DRL + yaw deadband}: same as (2), but DRL yaw commands whose per-turbine maximum absolute value is below a configurable deadband threshold $\delta$ are suppressed (set to zero). Three deadband values are tested: $\delta{=}2^\circ$ (identified as the sweet spot), $\delta{=}3^\circ$ (aggressive), and $\delta{=}5^\circ$ (standard industrial hysteresis, found to disable most yaw activity in this application). The primary result uses $\delta{=}2^\circ$.
 \end{enumerate}
