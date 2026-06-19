@@ -852,7 +852,7 @@ Under the optimized configuration, the $5{\times}5$ aligned-cube gain is $\mathb
 \label{fig:p1_5x5_eval_rand}
 \end{figure}
 
-\subsection{DRL-Deploy: a deployment-ready cooperative yaw controller}\label{sec:deploy}
+\subsection{DRL-Deploy: a simulation-validated cooperative yaw controller candidate}\label{sec:deploy}
 
 The preceding analysis establishes that (i)~static-trained DRL achieves near-SLSQP performance in wake-aligned steady-state conditions, (ii)~dynamic-wind training without sufficient temporal context degrades performance due to spurious wind--action correlations, and (iii)~industrial control logic (sector gating, hysteresis, yaw deadband, rate limits) can suppress spurious yaw activity outside the high-value wake-aligned regime. We combine these findings into a \textbf{DRL-Deploy} controller:
 
