@@ -568,7 +568,7 @@ Numerical optim. & sec--min & Required (full re-solve) & None (offline) & Modera
 
 \subsection{Reward design: action penalties expose the power--yaw-activity trade-off}\label{sec:reward_ablation}
 A natural attempt to stabilize the post-breakthrough oscillation in
-Fig.~\ref{fig:3x3_train_p0c} is to add an action-magnitude penalty
+the training curves (see Supplementary Material, Section~S4) is to add an action-magnitude penalty
 $P_\mathrm{mag}=\lambda_\mathrm{mag}\sum_i\gamma_i^2$ and a rate-of-change
 penalty $P_\mathrm{rate}=\lambda_\mathrm{rate}\sum_i(\Delta\gamma_i)^2$
 to Eq.~\eqref{eq:reward}. We analyze the effect of these penalties on
