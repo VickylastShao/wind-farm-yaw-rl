@@ -868,7 +868,7 @@ with hysteresis entry/exit thresholds ($15^\circ$/$20^\circ$) and a binding yaw-
 
 \begin{table}[h]
 \centering
-\caption{DRL-Deploy vs.\ baselines on the unified dynamic-wind benchmark (200 AR(1) trajectories, 200 steps, $T{=}10$\,s). Static Config-E policy is used as the DRL component. Peak yaw rate is per-turbine $\max_i|\Delta\gamma_i|/T$ in $^\circ\!/\!\mathrm{s}$.}
+\caption{DRL-Deploy vs.\ baselines on the unified dynamic-wind benchmark (200 AR(1) trajectories, 200 steps, $T{=}10$\,s). The Static DRL-Deploy row uses the Config-E static-trained policy; the J=15 Dyn row uses the $J{=}15$ dynamic-trained policy ($\lambda_\mathrm{rate}{=}5{\times}10^{-4}$). Peak yaw rate is per-turbine $\max_i|\Delta\gamma_i|/T$ in $^\circ\!/\!\mathrm{s}$.}
 \label{tab:deploy}
 \small
 \begin{tabular}{lcccc}
