@@ -387,7 +387,7 @@ Shuffle          & $-0.087$ & $124.6$ & $16.7$ \\
 
 \subsection{Interpretation}
 
-The causal ablation provides evidence that the J=15 policy uses temporally ordered observational history beyond the most recent $30$\,s. The modest impact of masking the $t{-}10$--$t{-}12$ band relative to the Last-3 collapse suggests that the policy draws on multiple time scales across the full $150$\,s window rather than relying predominantly on a single delay-epoch. These results validate the design rationale for extended observation windows but do not imply that temporal context alone solves dynamic control: the J=15 policy must still be combined with the DRL-Deploy supervisory wrapper to achieve deployment-relevant performance (Section~S8, main text Section~4.8).
+The causal ablation provides evidence that the J=15 policy uses temporally ordered observational history beyond the most recent $30$\,s. The modest impact of masking the $t{-}10$--$t{-}12$ band relative to the Last-3 collapse suggests that the policy draws on multiple time scales across the full $150$\,s window rather than relying predominantly on a single delay-epoch. These results validate the design rationale for extended observation windows but do not imply that temporal context alone solves dynamic control: the J=15 policy must still be combined with the DRL-Deploy supervisory wrapper to achieve deployment-relevant performance (Section~S8, main text, DRL-Deploy section).
 
 %=============================================================================
 \section{DRL-Deploy Wrapper Sensitivity}\label{sec:deploy_sens}
@@ -461,6 +461,63 @@ Table~S14 reports sensitivity to the gate entry band ($10^\circ$, $15^\circ$, $2
 The DRL-Deploy controller applies a binding rate limit of ${\pm}3^\circ$ per control step ($0.3^\circ\!/\!\mathrm{s}$ per turbine at $T{=}10$\,s), enforced through the \texttt{RATE\_MAX}$\,{=}\,0.3$ parameter in the evaluation scripts. This is consistent with the $0.3$--$0.5^\circ\!/\!\mathrm{s}$ yaw-rate capability of multi-MW utility-scale turbines. The per-turbine peak yaw rates of DRL-Deploy controllers (Tables~S9--S10) are at this rate-limit bound.
 
 %=============================================================================
+\section{Delayed-Wake Evaluation}\label{sec:delay_details}
+
+\subsection{Delayed-wake model definition}
+
+The delayed-wake surrogate augments the gray-box model with a yaw-history buffer of length $D$ control steps. At each control step $t$, the wake deficit at downstream turbines is computed using the upstream turbine's yaw angle from step $t{-}D$, while each turbine's own power output uses its current yaw $\gamma_i(t)$. This approximates the physical wake-transport lag: a change in upstream yaw at time $t$ does not affect downstream inflow until time $t{+}D{\cdot}T$, matching the convective transport time scale $d_0/U_\infty \approx 7{\times}126/9.4 \approx 94$\,s at the nominal $7d_0$ spacing ($T{=}10$\,s, $D{=}10$). Formally, the delayed inflow at turbine $i$ is:
+\[
+u_i^\mathrm{delayed}(t) = U_\infty - \sum_{j: x_j < x_i} \Delta u_{ij}\big(\gamma_j(t{-}D), \mathbf{p}_i, \mathbf{p}_j\big)
+\]
+where $\Delta u_{ij}$ is the Bastankhah--Port\'e-Agel wake deficit computed with the delayed upstream yaw. The buffer is initialised with zeros (corresponding to the zero-yaw start condition) and updated at each step by shifting and inserting the current yaw. This is a first-order surrogate; it does not capture wake meandering, variable convective velocity, or partial-wake overlap dynamics.
+
+\subsection{Controller configurations}
+
+All controllers---SLSQP+Deploy, DRL-Deploy Static, and DRL-Deploy J=15---use the identical DRL-Deploy supervisory wrapper ($15^\circ$/$20^\circ$ gate, $2^\circ$ deadband, ${\pm}3^\circ$/step rate limit, zero-yaw fallback). SLSQP+Deploy looks up the SLSQP-optimal yaw for the current $(\phi_t, v_t)$ from the precomputed $91{\times}11$ grid and applies the wrapper constraints. DRL-Deploy controllers use the Config-E trained policies.
+
+\subsection{Delay sensitivity}
+
+Table~S22 reports the delay sensitivity for $D{\in}\{0,5,10,15\}$ steps (equivalent to $0$, $50$, $100$, $150$\,s at $T{=}10$\,s). $100$ Proto~B trajectories ($\rho{=}0.95$, $\sigma_\phi{=}2^\circ$) of $200$ steps each are used, with identical trajectory realisations across all controllers and delay values (matched evaluation). Seed~0 is used for all DRL controllers.
+
+\begin{table}[h]
+\centering
+\caption{Delay sensitivity: per-step gain [\%] vs.\ wake transport delay.}
+\label{tab:delay_sens}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Controller & $0$\,s & $50$\,s & $100$\,s & $150$\,s \\
+\midrule
+SLSQP+Deploy       & $+0.957$ & $+0.641$ & $+0.117$ & $-0.191$ \\
+DRL-Deploy J=15    & $+0.001$ & $+0.001$ & $+0.001$ & $+0.000$ \\
+DRL-Deploy Static  & $-4.532$ & $-4.420$ & $-4.285$ & $-4.150$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Multi-seed results at $100$\,s delay}
+
+Table~S23 reports the 3-seed evaluation at $D{=}10$ ($100$\,s). The J=15 DRL-Deploy seeds span $[+0.001\%, -1.028\%]$ while Static DRL-Deploy seeds span $[-2.59\%, -6.76\%]$. The J=15 seed-to-seed variance is consistent with the known training variability of the dynamic-wind PPO policy (see main text, J=15 causal ablation, single-seed protocol); the best J=15 seed substantially outperforms the best Static seed under delay.
+
+\begin{table}[h]
+\centering
+\caption{Multi-seed delayed-wake evaluation at $100$\,s delay (3 seeds each).}
+\label{tab:delay_multiseed}
+\small
+\begin{tabular}{lccc}
+\toprule
+Controller & Seed gains [\%] & Mean $\pm$ std [\%] \\
+\midrule
+DRL-Deploy J=15    & $[+0.001, -0.438, -1.028]$ & $-0.488 \pm 0.43$ \\
+DRL-Deploy Static  & $[-4.285, -2.594, -6.756]$ & $-4.545 \pm 1.72$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Limitations}
+
+The yaw-history buffer is a first-order delayed-wake surrogate. It assumes uniform convective velocity ($U_\infty$) for all wake elements, ignores wake meandering and turbulent dispersion, and uses a fixed delay independent of the streamwise distance between turbine pairs. A full convective-wake model (e.g., the advection--diffusion formulation in FLORIS) or LES/FAST.Farm dynamic-wake simulation would provide a more physically complete assessment. The results should therefore be interpreted as demonstrating the \emph{mechanism} by which temporal context provides robustness to wake transport lag, not as a quantitative prediction of field performance under delay.
+
 \section{Horns Rev AEP Replay Details}\label{sec:aep_details}
 
 \subsection{Wind-climate model}
@@ -567,7 +624,7 @@ Low-wind OOD         & Wind speeds below cut-in                     & $3$, $4$, 
 
 \subsection{Full scenario results}
 
-Table~S19 reports the main safety metrics for all scenarios and controllers. The safety evaluation uses single-condition settling from a cold start (zero-filled observation history). Under this protocol, the J=15 DRL-Deploy policy's rate-penalty--trained action increments are sufficiently small to be fully suppressed by the $2^\circ$ deadband, producing max $|\gamma|{=}0^\circ$ and zero unsafe commands---a worst-case conservative bound. Under trajectory-based evaluation with accumulated observation history (Sections~S6--S7, main text Section~4.8), the J=15 policy produces non-zero yaw commands and achieves positive gains. The safety result therefore demonstrates that even when initialised without any temporal context, the J=15 Deploy controller defaults to safe (zero-yaw) behaviour rather than issuing unsafe commands.
+Table~S19 reports the main safety metrics for all scenarios and controllers. The safety evaluation uses single-condition settling from a cold start (zero-filled observation history). Under this protocol, the J=15 DRL-Deploy policy's rate-penalty--trained action increments are sufficiently small to be fully suppressed by the $2^\circ$ deadband, producing max $|\gamma|{=}0^\circ$ and zero unsafe commands---a worst-case conservative bound. Under trajectory-based evaluation with accumulated observation history (Sections~S6--S7, main text, DRL-Deploy section), the J=15 policy produces non-zero yaw commands and achieves positive gains. The safety result therefore demonstrates that even when initialised without any temporal context, the J=15 Deploy controller defaults to safe (zero-yaw) behaviour rather than issuing unsafe commands.
 
 \begin{table}[h]
 \centering
