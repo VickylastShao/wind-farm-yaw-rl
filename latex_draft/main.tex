@@ -86,6 +86,15 @@ The core argument of this paper is that static snapshot-wise yaw optimization do
 
 \begin{figure}[t]
 \centering
+% TODO: REPLACE THIS IMAGE. The current fig_framework.jpg shows the old
+% 'Research Process Timeline: Model Construction → Model Integration →
+% Control Optimization'. It must be replaced with a new figure showing:
+%   LEFT:  Static SLSQP/lookup pipeline (snapshot in → static yaw out,
+%          annotated: no wake delay, no actuator dynamics, no fallback)
+%   RIGHT: DRL-Deploy (history window + SCADA wind → PPO policy →
+%          gate→hysteresis→deadband→rate-limit→fallback → actuator yaw)
+%   CENTER ANNOTATION: Deployment Gap = wake delay + evolving inflow
+%                      + actuator constraints
 \includegraphics[width=0.95\linewidth]{fig_framework}
 \caption{\textbf{From static optimization to deployment-oriented closed-loop control.} Left: conventional static-optimization pipeline (SLSQP or lookup table) that maps a single inflow snapshot to a static yaw vector, without accounting for wake-propagation delay, actuator dynamics, or fail-safe fallback. Right: the proposed DRL-Deploy framework, which combines a temporally-aware PPO policy with a supervisory wrapper (gate, hysteresis, deadband, rate limit, fallback) to produce actuator-compatible yaw commands under time-varying wind.}
 \label{fig:framework}
