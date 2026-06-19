@@ -868,14 +868,14 @@ with hysteresis entry/exit thresholds ($15^\circ$/$20^\circ$) and a binding yaw-
 
 \begin{table}[h]
 \centering
-\caption{DRL-Deploy vs.\ baselines on the unified dynamic-wind benchmark (200 AR(1) trajectories, 200 steps, $T{=}10$\,s). The Static DRL-Deploy row uses the Config-E static-trained policy; the J=15 Dyn row uses the $J{=}15$ dynamic-trained policy ($\lambda_\mathrm{rate}{=}5{\times}10^{-4}$). Peak yaw rate is per-turbine $\max_i|\Delta\gamma_i|/T$ in $^\circ\!/\!\mathrm{s}$.}
+\caption{DRL-Deploy vs.\ baselines on the unified dynamic-wind benchmark (200 AR(1) trajectories, 200 steps, $T{=}10$\,s). The Static DRL-Deploy row uses the Config-E static-trained policy; the J=15 Dyn row uses the $J{=}15$ dynamic-trained policy ($\lambda_\mathrm{rate}{=}5{\times}10^{-4}$). Peak yaw rate is per-turbine $\max_i|\Delta\gamma_i|/T$ in $^\circ\!/\!\mathrm{s}$. The zero-yaw row represents the standard industrial greedy-tracking baseline (each turbine independently maintains $\gamma_i{=}0^\circ$); see \S\ref{sec:industrial_baseline} for industrial-baseline comparisons with configurable deadband and rate limits.}
 \label{tab:deploy}
 \small
 \begin{tabular}{lcccc}
 \toprule
 Controller & Gain/step [\%] & Travel/turb [$^\circ$] & Peak rate [$^\circ\!/\!\mathrm{s}$] & Neg. frac. [\%] \\
 \midrule
-Zero yaw (baseline)       & $+0.000$ & $0$   & $0.00$ & $0$ \\
+Zero yaw / Greedy tracking (baseline) & $+0.000$ & $0$   & $0.00$ & $0$ \\
 Static Config-E (raw)     & $-0.201$ & $191$ & $0.21$ & $23$ \\
 SLSQP lookup, RL$=0.5^\circ\!/\!\mathrm{s}$ & $+2.178$ & $277$ & $0.33$ & $10$ \\
 SLSQP lookup, unlimited   & $+3.386$ & $640$ & $4.73$ & $6$ \\
