@@ -79,9 +79,9 @@ All dynamic comparisons use the same wind trajectory realisations across control
 
 Three CFD reference datasets were used for joint parameter calibration:
 \begin{itemize}
-\item Three-turbine inline layout (Supplementary Fig.~S1a): wake-velocity profiles at $d_0$ spacing;
-\item 35-turbine large farm at $240^\circ$ inflow (Supplementary Fig.~S1b): farm-scale wake accumulation;
-\item Two-turbine yaw-sweep (Supplementary Fig.~S1c): yaw-induced deflection at $\gamma{\in}[0^\circ,50^\circ]$.
+\item Three-turbine inline layout: wake-velocity profiles at $d_0$ spacing;
+\item 35-turbine large farm at $240^\circ$ inflow: farm-scale wake accumulation;
+\item Two-turbine yaw-sweep: yaw-induced deflection at $\gamma{\in}[0^\circ,50^\circ]$.
 \end{itemize}
 
 The Bastankhah--Port\'e-Agel Gaussian wake model was calibrated via Levenberg--Marquardt least-squares optimisation over all three datasets jointly. The free parameters are the wake-spreading coefficients ($\alpha^\star$, $\beta^\star$), the superposition mixing factor ($\alpha$), and the ambient turbulence intensity ($I$). Table~S3 reports the calibrated values.
@@ -107,11 +107,11 @@ $I$ converges to its prescribed lower bound ($0.065$), indicating that the defau
 
 \subsection{Horns Rev~I validation}
 
-The calibrated model is validated against the Horns Rev~I LES benchmark~(Barthelmie et~al., 2009) using the V80 turbine power curve (Supplementary Fig.~S2). Normalised farm power as a function of wind direction is compared against LES measurements, confirming that the model captures the direction-dependent wake-loss structure without site-specific retuning.
+The calibrated model is validated against the Horns Rev~I LES benchmark~(Barthelmie et~al., 2009) using the V80 turbine power curve (calibration datasets and validation figures are provided in the main text, Section~3). Normalised farm power as a function of wind direction is compared against LES measurements, confirming that the model captures the direction-dependent wake-loss structure without site-specific retuning.
 
 \subsection{FLORIS cross-validation}
 
-Figure~S3 compares the calibrated gray-box model against FLORIS (GCH wake model, NREL~5MW turbine) on the $3{\times}3$ layout for a direction sweep ($\gamma{=}0^\circ$) and a two-turbine yaw sweep ($\gamma{\in}[0^\circ,50^\circ]$). The two models agree on the sign, rank ordering, and location of peak cooperative-yaw gains, supporting the use of the gray-box model as a DRL training surrogate.
+FLORIS cross-validation compares the calibrated gray-box model against FLORIS (GCH wake model, NREL~5MW turbine) on the $3{\times}3$ layout for a direction sweep ($\gamma{=}0^\circ$) and a two-turbine yaw sweep ($\gamma{\in}[0^\circ,50^\circ]$). The two models agree on the sign, rank ordering, and location of peak cooperative-yaw gains, supporting the use of the gray-box model as a DRL training surrogate.
 
 %=============================================================================
 \section{PPO Training and Implementation Details}\label{sec:ppo_impl}
@@ -171,7 +171,7 @@ Observation history $J$ & $3$ \\
 
 \subsection{JAX/NNX on-device implementation}
 
-The training loop is fully on-device: the wake model, the PPO rollout (128 parallel environments), and the GAE+PPO update are all expressed in JAX and JIT-compiled. This achieves ${\sim}95{,}000$\,FPS on an NVIDIA RTX~4090 (Supplementary Fig.~S4). The JAX environment produces numerically equivalent results to the original NumPy gym on a $19$-point $(\phi,v)$ grid (Supplementary Fig.~S5), confirming that the acceleration does not alter the physical evaluation model.
+The training loop is fully on-device: the wake model, the PPO rollout (128 parallel environments), and the GAE+PPO update are all expressed in JAX and JIT-compiled. This achieves ${\sim}95{,}000$\,FPS on an NVIDIA RTX~4090 (see main text, Section~3, for the JAX throughput benchmark). The JAX environment produces numerically equivalent results to the original NumPy gym on a $19$-point $(\phi,v)$ grid, confirming that the acceleration does not alter the physical evaluation model.
 
 %=============================================================================
 \section{Configuration Ablations Leading to Config-E}\label{sec:config_abl}
@@ -205,7 +205,7 @@ Expanding the action bounds from ${\pm}5^\circ$ to ${\pm}10^\circ$ per step allo
 
 The downstream-turbine locking mechanism prevents turbines that are not significantly waking any downstream neighbour from participating in cooperative yaw. To verify that locking remains essential under the optimized settings, we re-trained the \textbf{Config-E controller} with the lock-mask disabled (lock\_off\_configE) for three random seeds ($3{\times}10^{7}$ steps, Config-E hyperparameters: $J{=}3$, deficit normalization, position encoding, SLSQP-regret reward, focused sampling 0.3/0.3/0.4, ${\pm}10^\circ$ action bounds, cosine LR, AdamW). The lock-enabled comparison uses the Config-E \texttt{sens\_act10} checkpoints trained under identical settings.
 
-The lock-enabled policy achieves a mean regret-reward gain of $+2.42\%$ over $200$ uniformly sampled wind conditions, whereas the lock-disabled policy degrades to $-0.46\%$ with an increased negative-gain fraction ($28\%$ vs.\ $18\%$; Supplementary Fig.~S6). Disabling the lock erases the cooperative gain and destabilises learning even under the optimized Config-E settings: rear turbines, lacking downstream peers, yaw away from the incoming flow under stochastic exploration, paying a $\cos^{1.88}(\gamma)$ power tax for no recoverable benefit. The locking mechanism is thus a necessary structural ingredient of the framework, validated under Config-E and retained in all configurations.
+The lock-enabled policy achieves a mean regret-reward gain of $+2.42\%$ over $200$ uniformly sampled wind conditions, whereas the lock-disabled policy degrades to $-0.46\%$ with an increased negative-gain fraction ($28\%$ vs.\ $18\%$; see main text, Section~3.2). Disabling the lock erases the cooperative gain and destabilises learning even under the optimized Config-E settings: rear turbines, lacking downstream peers, yaw away from the incoming flow under stochastic exploration, paying a $\cos^{1.88}(\gamma)$ power tax for no recoverable benefit. The locking mechanism is thus a necessary structural ingredient of the framework, validated under Config-E and retained in all configurations.
 
 \subsection{KL early-stopping}
 
@@ -229,7 +229,7 @@ Early-stop trigger rate & $0.3\%$ & $0.0\%$ \\
 
 \subsection{Reward-penalty ablation}
 
-Adding yaw-magnitude and yaw-rate penalties ($\lambda_\mathrm{mag}{=}\lambda_\mathrm{rate}{=}8{\times}10^{-5}$) to the training reward depresses the final-$10$-iteration return from $+19.79$ to $+15.78$ ($-20\%$ relative) and lowers the best-seed peak from $+28.1$ to $+22.3$ (Supplementary Fig.~S7). This result informed the decision to introduce rate penalties only through dynamic-wind training ($\lambda_\mathrm{rate}$, Section~S6) rather than via static-training reward shaping.
+Adding yaw-magnitude and yaw-rate penalties ($\lambda_\mathrm{mag}{=}\lambda_\mathrm{rate}{=}8{\times}10^{-5}$) to the training reward depresses the final-$10$-iteration return from $+19.79$ to $+15.78$ ($-20\%$ relative) and lowers the best-seed peak from $+28.1$ to $+22.3$ (see main text, Section~4.1). This result informed the decision to introduce rate penalties only through dynamic-wind training ($\lambda_\mathrm{rate}$, Section~S6) rather than via static-training reward shaping.
 
 %=============================================================================
 \section{Reward and Algorithmic Baselines}\label{sec:baselines}
